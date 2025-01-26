@@ -6,13 +6,13 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:26:02 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/25 18:06:25 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/01/26 10:38:02 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "webserv.hpp"
 
-bool endsWithConf(char *str)
+bool	endsWithConf(char *str)
 {
 	size_t	len = std::strlen(str);
 	
@@ -23,7 +23,7 @@ bool endsWithConf(char *str)
 	return (std::strcmp(str + len - 5, ".conf") == 0);
 }
 
-bool parse(int argc, char **argv)
+bool	parse(int argc, char **argv)
 {
 	if (argc != 2)
 	{

@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:18 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/25 17:53:02 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/01/26 10:57:57 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,5 +37,6 @@
 //# include <sys/event.h> Erreur sur cette bibliothèque
 
 bool parse(int argc, char **argv);
+bool socket(void);
 
 #endif

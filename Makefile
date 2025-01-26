@@ -6,7 +6,7 @@
 #    By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/01/25 17:18:15 by dloisel           #+#    #+#              #
-#    Updated: 2025/01/25 18:06:24 by dloisel          ###   ########.fr        #
+#    Updated: 2025/01/26 10:57:38 by dloisel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -22,7 +22,7 @@ NAME = webserv
 CC = c++
 CFLAGS = -Wall -Werror -Wextra -std=c++98
 
-SRC = main.cpp webserv.cpp parse.cpp
+SRC = main.cpp webserv.cpp parse.cpp socket.cpp
 
 RM = rm -f
 OBJ = $(SRC:.cpp=.o)

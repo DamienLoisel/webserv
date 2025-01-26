@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/25 17:41:54 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/01/26 10:57:28 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,5 +17,6 @@ int main(int argc, char **argv)
     (void)argv;
     if (!parse(argc, argv))
         return (1);
+    socket();
     return (0);
 }
