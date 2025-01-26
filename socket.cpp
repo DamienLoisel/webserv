@@ -6,11 +6,13 @@
 /*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 10:35:54 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/26 11:52:27 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/01/26 15:42:17 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "webserv.hpp"
+#include "HTTPRequest.cpp"
+#include "HTTPResponse.cpp"
 #include <poll.h>
 #include <vector>
 #include <fcntl.h>
@@ -107,18 +109,18 @@ bool socket(void)
                ssize_t bytes = recv(fds[i].fd, buffer, sizeof(buffer), 0);
                
                if (bytes <= 0)
-               {
+                {
                    std::cout << "Client disconnected." << std::endl;
                    close(fds[i].fd);
                    fds.erase(fds.begin() + i);
                    i--;
-               }
-               else
-               {
-                   std::cout << "Received: " << buffer << std::endl;
-                   std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello World!\n";
-                   send(fds[i].fd, response.c_str(), response.size(), 0);
-               }
+                }
+                else
+                {
+                    std::cout << "Received: " << buffer << std::endl;
+                    HTTPRequest request(buffer);
+                    HTTPResponse::handle_request(request, fds[i].fd);
+                }
            }
        }
    }

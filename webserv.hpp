@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webserv.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:18 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/26 10:57:57 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/01/26 13:55:57 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,6 +34,13 @@
 # include <sys/epoll.h>
 # include <sys/select.h>
 # include <dirent.h>
+# include <sstream>
+# include <map>
+# include <vector>
+# include <fstream>
+
+
+
 //# include <sys/event.h> Erreur sur cette bibliothèque
 
 bool parse(int argc, char **argv);
