@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/26 17:46:05 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/17 03:39:17 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,7 +17,7 @@ void	display(char *conf)
 {
 	ConfigParser parser;
 	if (parser.parse(conf)) {
-		const ConfigParser::ServerConfig& config = parser.getServerConfig();
+		const ServerConfig& config = parser.getServerConfig();
 		
 		std::cout << "Server Configuration Details:" << std::endl;
 		std::cout << "-----------------------------" << std::endl;
@@ -32,10 +32,10 @@ void	display(char *conf)
 		std::cout << "\nLocation Configurations:" << std::endl;
 		std::cout << "----------------------" << std::endl;
 		
-		for (std::map<std::string, ConfigParser::LocationConfig>::const_iterator it = config.locations.begin(); 
+		for (std::map<std::string, LocationConfig>::const_iterator it = config.locations.begin(); 
 			 it != config.locations.end(); ++it) {
 			std::cout << "Location Path: " << it->first << std::endl;
-			const ConfigParser::LocationConfig& loc = it->second;
+			const LocationConfig& loc = it->second;
 			
 			std::cout << "  Root: " << loc.root << std::endl;
 			std::cout << "  Autoindex: " << (loc.autoindex ? "On" : "Off") << std::endl;
@@ -69,6 +69,10 @@ int main(int argc, char **argv)
     if (!parse(argc, argv))
         return (1);
     display(argv[1]);
-    socket();
+	ConfigParser parser;
+	if (parser.parse(argv[1])) {
+	    const ServerConfig& config = parser.getServerConfig();
+	    socket(config);
+	}
     return (0);
 }
