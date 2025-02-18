@@ -85,8 +85,8 @@
             border-radius: 4px;
             color: #fff;
             text-align: left;
-            white-space: pre-wrap;
-            font-family: monospace;
+            height: 400px;
+            overflow: auto;
         }
 
         .unicorn {
@@ -139,7 +139,7 @@
         <button onclick="openInNewTab()" style="background-color: #28a745;">Ouvrir dans un nouvel onglet</button>
 
         <!-- Affichage de la réponse -->
-        <iframe class="response" id="response" frameborder="0"></iframe>
+        <div id="response" class="response"></div>
     </div>
 
     <script>
@@ -183,11 +183,12 @@
             fetch(url, options)
                 .then(response => response.text())
                 .then(data => {
-                    const iframe = document.getElementById('response');
-                    iframe.srcdoc = data;
+                    const response = document.getElementById('response');
+                    response.innerHTML = data;
                 })
                 .catch(error => {
-                    document.getElementById('response').textContent = 'Erreur : ' + error.message;
+                    const response = document.getElementById('response');
+                    response.textContent = 'Erreur : ' + error.message;
                 });
         }
         // Ouvre la requête dans un nouvel onglet
