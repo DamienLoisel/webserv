@@ -11,6 +11,9 @@
 /* ************************************************************************** */
 
 #include "ConfigParser.hpp"
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 void ConfigParser::trim(std::string& str)
 {
@@ -124,7 +127,7 @@ bool ConfigParser::parse(const std::string& filename)
 	return true;
 }
 
-const ConfigParser::ServerConfig& ConfigParser::getServerConfig() const 
+const ServerConfig& ConfigParser::getServerConfig() const 
 { 
 	return server; 
 }

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webserv.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:18 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/26 13:55:57 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/17 03:39:10 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,12 +38,11 @@
 # include <map>
 # include <vector>
 # include <fstream>
-
-
+# include "ConfigTypes.hpp"
 
 //# include <sys/event.h> Erreur sur cette bibliothèque
 
 bool parse(int argc, char **argv);
-bool socket(void);
+bool socket(const ServerConfig& config);
 
 #endif
