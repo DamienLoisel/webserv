@@ -139,7 +139,7 @@
         <button onclick="openInNewTab()" style="background-color: #28a745;">Ouvrir dans un nouvel onglet</button>
 
         <!-- Affichage de la réponse -->
-        <div class="response" id="response"></div>
+        <iframe class="response" id="response" frameborder="0"></iframe>
     </div>
 
     <script>
@@ -168,7 +168,10 @@
             // Options de la requête
             const options = {
                 method: requestType,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'curl/7.88.1'
+                },
             };
 
             // Ajoute les données pour POST
@@ -180,7 +183,8 @@
             fetch(url, options)
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('response').textContent = data;
+                    const iframe = document.getElementById('response');
+                    iframe.srcdoc = data;
                 })
                 .catch(error => {
                     document.getElementById('response').textContent = 'Erreur : ' + error.message;
