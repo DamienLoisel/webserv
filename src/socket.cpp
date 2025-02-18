@@ -148,79 +148,37 @@ bool socket(const ServerConfig& config)
                 else
                 {
                     std::cout << "Received: " << buffer << std::endl;
-                    HTTPRequest request(buffer);
+                    try {
+                        HTTPRequest request(buffer);
+                        // Créer une instance de HTTPResponse pour les erreurs
+                        HTTPResponse error_response(500, "text/plain", "Internal Server Error");
 
-                    // Trouver la location correspondante
-                    std::string uri = request.getURI();
-                    std::string location_path = findLocationForURI(uri, config.locations);
-
-                    if (!location_path.empty())
-                    {
-                        const LocationConfig& location = config.locations.at(location_path);
-                        
-                        // Vérifier si la méthode est autorisée
-                        bool isMethodAllowed = false;
-                        std::string method = request.getMethod();
-                        for (std::vector<std::string>::const_iterator it = location.allowed_methods.begin(); it != location.allowed_methods.end(); ++it)
-                        {
-                            if (*it == method)
-                            {
-                                isMethodAllowed = true;
-                                break;
+                        try {
+                            error_response.handle_request(request, fds[i].fd);
+                        } catch (const std::runtime_error& e) {
+                            std::string error = e.what();
+                            std::cout << "Error handling request: " << error << std::endl;
+                            
+                            if (error == "501 Not Implemented") {
+                                HTTPResponse resp(501, "text/plain", "Not Implemented");
+                                send(fds[i].fd, resp.toString().c_str(), resp.toString().length(), 0);
+                            } else {
+                                send(fds[i].fd, error_response.toString().c_str(), error_response.toString().length(), 0);
                             }
                         }
-                        
-                        if (!isMethodAllowed)
-                        {
-                            // Method not allowed: Send a 405 Method Not Allowed response
-                            std::string response = "HTTP/1.1 405 Method Not Allowed\r\n";
-                            response += "Allow: " + join(location.allowed_methods, ", ") + "\r\n\r\n";
-                            send(fds[i].fd, response.c_str(), response.size(), 0);
-                            continue;
-                        }
-
-                        // Vérifier si c'est une requête CGI
-                        std::string file_ext;
-                        size_t dot_pos = uri.find_last_of('.');
-                        if (dot_pos != std::string::npos) {
-                            file_ext = uri.substr(dot_pos);
-                        }
-
-                        bool isCGI = false;
-                        for (std::vector<std::string>::const_iterator it = location.cgi_ext.begin(); it != location.cgi_ext.end(); ++it) {
-                            if (*it == file_ext) {
-                                isCGI = true;
-                                break;
-                            }
-                        }
-
-                        if (isCGI) {
-                            std::string script_path = "." + uri;
-                            if (access(script_path.c_str(), X_OK) == 0) {
-                                // Exécuter le script CGI
-                                CGIHandler cgi(script_path);
-                                try {
-                                    std::string output = cgi.executeCGI(method, uri, request.getBody());
-                                    send(fds[i].fd, output.c_str(), output.length(), 0);
-                                } catch (const std::exception& e) {
-                                    std::string error = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nCGI execution failed: " + std::string(e.what());
-                                    send(fds[i].fd, error.c_str(), error.length(), 0);
-                                }
-                                continue;
-                            }
-                        }
+                    } catch (...) {
+                        HTTPResponse resp(500, "text/plain", "Internal Server Error");
+                        send(fds[i].fd, resp.toString().c_str(), resp.toString().length(), 0);
                     }
-
-                    // Si ce n'est pas un CGI ou si la location n'est pas trouvée, traiter comme une requête normale
-                    HTTPResponse::handle_request(request, fds[i].fd);
                 }
             }
         }
-    }   
+    }
 
     // Nettoyage
-    for (size_t i = 0; i < fds.size(); i++)
+    for (size_t i = 0; i < fds.size(); i++) {
         close(fds[i].fd);
+    }
     
     return true;
 }

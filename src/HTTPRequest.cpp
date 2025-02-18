@@ -22,6 +22,12 @@ HTTPRequest::HTTPRequest(const char* raw_request) {
         parseRequestLine(request_line);
         parseHeaders(iss);
         parseBody(iss);
+
+        // Vérifie les méthodes supportées après avoir parsé toute la requête
+        if (method != "GET" && method != "POST" && method != "DELETE") {
+            version = "HTTP/1.1"; // Assure que la version est définie pour la réponse d'erreur
+            throw std::runtime_error("501 Not Implemented");
+        }
 }
 
 void HTTPRequest::parseRequestLine(std::string& line) {

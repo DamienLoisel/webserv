@@ -13,6 +13,9 @@
 #include "HTTPResponse.hpp"
 #include <sstream>
 
+// Définition de la variable statique
+const ServerConfig* HTTPResponse::config = NULL;
+
 HTTPResponse::HTTPResponse(int status, std::string content_type, std::string body) {
     std::stringstream ss;
     ss << "HTTP/1.1 " << status << "\r\n";
@@ -113,21 +116,56 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
     send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
 }
 void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
-    std::cout << "[DEBUG] Handling request for URI: " << req.getURI() << std::endl;
-    std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
-    
-    // Vérification de la validité de l'URI
-    std::string uri = req.getURI();
-    if (uri.find('\0') != std::string::npos) {
-        sendErrorPage(client_fd, 400, req);
-        return;
+    try {
+        std::cout << "[DEBUG] Handling request for URI: " << req.getURI() << std::endl;
+        std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
+        
+        // Vérification de la validité de l'URI
+        std::string uri = req.getURI();
+        if (uri.find('\0') != std::string::npos) {
+            sendErrorPage(client_fd, 400, req);
+            return;
+        }
+
+        // Vérification de la méthode
+        std::string method = req.getMethod();
+        if (method.empty()) {
+            sendErrorPage(client_fd, 400, req);
+            return;
+        }
+
+    // Vérification des méthodes autorisées selon la configuration
+    if (config) {
+        std::string uri = req.getURI();
+        bool method_allowed = false;
+
+        // Cherche la location qui correspond à l'URI
+        for (std::map<std::string, LocationConfig>::const_iterator it = config->locations.begin();
+             it != config->locations.end(); ++it) {
+            if (uri.find(it->first) == 0) {  // Si l'URI commence par le chemin de la location
+                const LocationConfig& loc = it->second;
+                // Vérifie si la méthode est autorisée
+                for (size_t i = 0; i < loc.allowed_methods.size(); ++i) {
+                    if (loc.allowed_methods[i] == method) {
+                        method_allowed = true;
+                        break;
+                    }
+                }
+                if (!method_allowed) {
+                    sendErrorPage(client_fd, 405, req);
+                    return;
+                }
+                break;
+            }
+        }
     }
 
-    // Vérification de la méthode
-    std::string method = req.getMethod();
-    if (method != "GET" && method != "POST" && method != "DELETE") {
-        sendErrorPage(client_fd, 501, req);
-        return;
+    // Vérification des méthodes autorisées pour index.html
+    if (uri == "/index.html" || uri == "/") {
+        if (method != "GET") {
+            sendErrorPage(client_fd, 405, req);
+            return;
+        }
     }
 
     // Vérification de la taille du body
@@ -152,24 +190,50 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 sendErrorPage(client_fd, 404, req);
                 return;
             }
-            // Puis vérifie s'il est exécutable
-            if (access(script_path.c_str(), X_OK) != 0) {
-                sendErrorPage(client_fd, 403, req);
-                return;
+            // Exécute le CGI et gère les erreurs
+            try {
+                executeCGI(script_path, req, client_fd);
+            } catch (const std::runtime_error& e) {
+                std::string error = e.what();
+                if (error.find("Permission denied") != std::string::npos) {
+                    sendErrorPage(client_fd, 403, req);
+                } else {
+                    sendErrorPage(client_fd, 500, req);
+                }
+            } catch (...) {
+                sendErrorPage(client_fd, 500, req);
             }
-            executeCGI(script_path, req, client_fd);
             return;
         }
 
         if (method == "POST") {
             std::string file_path = "." + uri;
+            
+            // Vérifie si le fichier existe déjà
+            if (access(file_path.c_str(), F_OK) == 0) {
+                // Vérifie les droits d'écriture
+                if (access(file_path.c_str(), W_OK) != 0) {
+                    sendErrorPage(client_fd, 403, req);
+                    return;
+                }
+            } else {
+                // Vérifie les droits d'écriture sur le dossier parent
+                std::string parent_dir = file_path.substr(0, file_path.find_last_of('/'));
+                if (access(parent_dir.c_str(), W_OK) != 0) {
+                    sendErrorPage(client_fd, 403, req);
+                    return;
+                }
+            }
+            
+            // Tente de créer ou modifier le fichier
             std::ofstream file(file_path.c_str());
             if (!file.is_open()) {
-                sendErrorPage(client_fd, 403, req);
+                sendErrorPage(client_fd, 500, req);
                 return;
             }
             file << req.getBody();
             file.close();
+            
             HTTPResponse resp(201, "text/plain", "File created successfully");
             send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
             return;
@@ -194,15 +258,39 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
     }
     else if (method == "DELETE") {
         std::string file_path = "." + uri;
+        
+        // Vérifie d'abord si le fichier existe
+        if (access(file_path.c_str(), F_OK) != 0) {
+            sendErrorPage(client_fd, 404, req);
+            return;
+        }
+        
+        // Vérifie si on a les droits d'écriture
+        if (access(file_path.c_str(), W_OK) != 0) {
+            sendErrorPage(client_fd, 403, req);
+            return;
+        }
+        
+        // Tente de supprimer le fichier
         if (remove(file_path.c_str()) == 0) {
             HTTPResponse resp(200, "text/plain", "File deleted successfully");
             send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
         } else {
-            sendErrorPage(client_fd, 404, req);
+            sendErrorPage(client_fd, 500, req);
         }
         return;
     }
     
-    // Si on arrive ici, c'est qu'il y a un problème
-    sendErrorPage(client_fd, 500, req);
+        // Si on arrive ici, c'est qu'il y a un problème
+        sendErrorPage(client_fd, 500, req);
+    } catch (const std::runtime_error& e) {
+        std::string error = e.what();
+        if (error == "501 Not Implemented") {
+            sendErrorPage(client_fd, 501, req);
+            return;
+        }
+        sendErrorPage(client_fd, 500, req);
+    } catch (...) {
+        sendErrorPage(client_fd, 500, req);
+    }
 }

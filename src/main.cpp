@@ -12,6 +12,7 @@
 
 #include "webserv.hpp"
 #include "ConfigParser.hpp"
+#include "HTTPResponse.hpp"
 
 void	display(char *conf)
 {
@@ -71,7 +72,10 @@ int main(int argc, char **argv)
     display(argv[1]);
 	ConfigParser parser;
 	if (parser.parse(argv[1])) {
-	    const ServerConfig& config = parser.getServerConfig();
+	    // Stocke la config dans une variable membre pour la garder en vie
+	    static const ServerConfig config = parser.getServerConfig();
+	    // Initialise la configuration dans HTTPResponse
+	    HTTPResponse::setConfig(&config);
 	    socket(config);
 	}
     return (0);

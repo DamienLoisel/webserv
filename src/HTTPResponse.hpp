@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "HTTPRequest.hpp"
 #include "CGIHandler.hpp"
+#include "ConfigTypes.hpp"
 
 // Constantes
 #define MAX_BODY_SIZE 1048576  // 1MB
@@ -16,10 +17,13 @@
 class HTTPResponse {
 private:
     std::string response;
+    static const ServerConfig* config;  // Configuration du serveur
 
 public:
     HTTPResponse(int status, std::string content_type, std::string body);
     std::string toString();
+    
+    static void setConfig(const ServerConfig* srv_config) { config = srv_config; }
     
     static bool isCGI(const std::string& uri);
     static void executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd);
