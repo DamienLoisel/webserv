@@ -20,25 +20,32 @@ RESET = \033[0m
 NAME = webserv
 
 CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++98
+CFLAGS = -Wall -Werror -Wextra -std=c++98 -I src/includes
 
-SRC = main.cpp webserv.cpp parse.cpp socket.cpp ConfigParser.cpp HTTPRequest.cpp HTTPResponse.cpp
+SRC_DIR = src
+SRC_FILES = main.cpp webserv.cpp parse.cpp socket.cpp ConfigParser.cpp HTTPRequest.cpp HTTPResponse.cpp CGIHandler.cpp
+SRC = $(addprefix $(SRC_DIR)/, $(SRC_FILES))
 
-RM = rm -f
-OBJ = $(SRC:.cpp=.o)
+OBJ_DIR = obj
+OBJ = $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+
+RM = rm -rf
 
 all: $(NAME)
+
+$(OBJ_DIR):
+	@mkdir -p $(OBJ_DIR)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(NAME): $(OBJ)
 	@$(CC) $(OBJ) $(CFLAGS) -o $(NAME)
 	@echo "$(GREEN)webserv compiled!$(RESET)"
 
-%.o: %.cpp
-	@$(CC) $(CFLAGS) -c $< -o $@
-
 clean:
 	@echo "$(RED)make clean...$(RESET)"
-	@$(RM) $(OBJ)
+	@$(RM) $(OBJ_DIR)
 
 fclean: clean
 	@echo "$(RED)make fclean...$(RESET)"

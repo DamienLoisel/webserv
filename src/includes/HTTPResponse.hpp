@@ -15,10 +15,14 @@
 
 # include "webserv.hpp"
 # include "HTTPRequest.hpp"
+# include "CGIHandler.hpp"
 
 class HTTPResponse {
 private:
     std::string response;
+    
+    static bool isCGI(const std::string& uri);
+    static void executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd);
     
 public:
     HTTPResponse(int status, std::string content_type, std::string body);

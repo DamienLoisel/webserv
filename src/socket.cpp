@@ -157,7 +157,8 @@ bool socket(const ServerConfig& config)
                     if (!location_path.empty())
                     {
                         const LocationConfig& location = config.locations.at(location_path);
-                        // Appliquer les règles de la location (par exemple, vérifier les méthodes autorisées)
+                        
+                        // Vérifier si la méthode est autorisée
                         bool isMethodAllowed = false;
                         std::string method = request.getMethod();
                         for (std::vector<std::string>::const_iterator it = location.allowed_methods.begin(); it != location.allowed_methods.end(); ++it)
@@ -173,23 +174,44 @@ bool socket(const ServerConfig& config)
                         {
                             // Method not allowed: Send a 405 Method Not Allowed response
                             std::string response = "HTTP/1.1 405 Method Not Allowed\r\n";
-                            response += "Allow: ";
-                            for (std::vector<std::string>::const_iterator it = location.allowed_methods.begin(); it != location.allowed_methods.end(); ++it)
-                            {
-                                response += *it;
-                                if (it + 1 != location.allowed_methods.end())
-                                {
-                                    response += ", ";
-                                }
-                            }
-                            response += "\r\n\r\n";
+                            response += "Allow: " + join(location.allowed_methods, ", ") + "\r\n\r\n";
                             send(fds[i].fd, response.c_str(), response.size(), 0);
-                            continue; // Skip further processing for this request
+                            continue;
                         }
-                        // Traiter la requête en fonction de la location
-                        // ...
+
+                        // Vérifier si c'est une requête CGI
+                        std::string file_ext;
+                        size_t dot_pos = uri.find_last_of('.');
+                        if (dot_pos != std::string::npos) {
+                            file_ext = uri.substr(dot_pos);
+                        }
+
+                        bool isCGI = false;
+                        for (std::vector<std::string>::const_iterator it = location.cgi_ext.begin(); it != location.cgi_ext.end(); ++it) {
+                            if (*it == file_ext) {
+                                isCGI = true;
+                                break;
+                            }
+                        }
+
+                        if (isCGI) {
+                            std::string script_path = "." + uri;
+                            if (access(script_path.c_str(), X_OK) == 0) {
+                                // Exécuter le script CGI
+                                CGIHandler cgi(script_path);
+                                try {
+                                    std::string output = cgi.executeCGI(method, uri, request.getBody());
+                                    send(fds[i].fd, output.c_str(), output.length(), 0);
+                                } catch (const std::exception& e) {
+                                    std::string error = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nCGI execution failed: " + std::string(e.what());
+                                    send(fds[i].fd, error.c_str(), error.length(), 0);
+                                }
+                                continue;
+                            }
+                        }
                     }
 
+                    // Si ce n'est pas un CGI ou si la location n'est pas trouvée, traiter comme une requête normale
                     HTTPResponse::handle_request(request, fds[i].fd);
                 }
             }

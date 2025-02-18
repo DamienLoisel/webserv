@@ -25,10 +25,63 @@ std::string HTTPResponse::toString() {
     return response;
 }
 
+bool HTTPResponse::isCGI(const std::string& uri) {
+    std::cout << "[DEBUG] Checking if URI is CGI: " << uri << std::endl;
+    
+    // Vérifie si l'URI commence par /cgi-bin/
+    if (uri.substr(0, 9) != "/cgi-bin/") {
+        std::cout << "[DEBUG] Not in /cgi-bin/ directory" << std::endl;
+        return false;
+    }
+    
+    // Vérifie si le fichier a l'extension .py
+    bool is_py = uri.substr(uri.length() - 3) == ".py";
+    std::cout << "[DEBUG] Is Python file? " << (is_py ? "yes" : "no") << std::endl;
+    return is_py;
+}
+
+void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd) {
+    std::cout << "[DEBUG] Executing CGI script: " << script_path << std::endl;
+    std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
+    std::cout << "[DEBUG] URI: " << req.getURI() << std::endl;
+    
+    CGIHandler cgi(script_path);
+    try {
+        std::cout << "[DEBUG] Calling CGIHandler::executeCGI" << std::endl;
+        std::string output = cgi.executeCGI(req.getMethod(), req.getURI(), req.getBody());
+        std::cout << "[DEBUG] CGI Output: " << output.substr(0, 100) << "..." << std::endl;
+        send(client_fd, output.c_str(), output.length(), 0);
+    } catch (const std::exception& e) {
+        std::cout << "[DEBUG] CGI execution failed: " << e.what() << std::endl;
+        HTTPResponse resp(500, "text/plain", "CGI execution failed: " + std::string(e.what()));
+        send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+    }
+}
+
 void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
-   if (req.getMethod() == "GET") {
-       std::string uri = "." + req.getURI();
-       std::ifstream file(uri.c_str());
+   std::cout << "[DEBUG] Handling request for URI: " << req.getURI() << std::endl;
+   std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
+   
+   if (req.getMethod() == "GET" || req.getMethod() == "POST") {
+       std::string uri = req.getURI();
+       
+       // Vérifie si c'est une requête CGI
+       if (isCGI(uri)) {
+           std::string script_path = "." + uri;
+           // Vérifie si le script existe et est exécutable
+           if (access(script_path.c_str(), X_OK) == 0) {
+               executeCGI(script_path, req, client_fd);
+               return;
+           } else {
+               HTTPResponse resp(403, "text/plain", "CGI script not executable");
+               send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+               return;
+           }
+       }
+       
+       // Si ce n'est pas un CGI, traite comme un fichier normal
+       std::string file_path = "." + uri;
+       std::ifstream file(file_path.c_str());
        
        if (!file.is_open()) {
            HTTPResponse resp(404, "text/plain", "File not found");

@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <cstring>
 #include <stdexcept>
+#include <sstream>
 
 // Constructeur
 CGIHandler::CGIHandler(const std::string& scriptPath) : _scriptPath(scriptPath) {}
@@ -13,7 +14,9 @@ void CGIHandler::setupEnvironment(const std::string& method, const std::string& 
 {
     _env["REQUEST_METHOD"] = method;
     _env["QUERY_STRING"] = queryString;
-    _env["CONTENT_LENGTH"] = std::to_string(_requestBody.length());
+    std::stringstream ss;
+    ss << _requestBody.length();
+    _env["CONTENT_LENGTH"] = ss.str();
     _env["SCRIPT_FILENAME"] = _scriptPath;
     _env["REDIRECT_STATUS"] = "200";
 }
@@ -73,7 +76,7 @@ std::string CGIHandler::executeCGI(const std::string& method,
 
         execve(_scriptPath.c_str(), args, env);
         // Si on arrive ici, c'est qu'il y a eu une erreur
-        exit(1);
+        _exit(1);
     }
 
     // Processus parent
@@ -93,6 +96,21 @@ std::string CGIHandler::executeCGI(const std::string& method,
     
     while ((bytesRead = read(outputPipe[0], buffer, sizeof(buffer))) > 0) {
         response.append(buffer, bytesRead);
+    }
+
+    // Vérifie si la réponse contient déjà des en-têtes HTTP
+    if (response.find("HTTP/1.") != 0) {
+        // Ajoute les en-têtes HTTP si nécessaire
+        std::string headers = "HTTP/1.1 200 OK\r\n";
+        headers += "Content-Type: text/html\r\n";
+        
+        // Ajoute Content-Length
+        std::stringstream ss;
+        ss << response.length();
+        headers += "Content-Length: " + ss.str() + "\r\n";
+        headers += "\r\n";
+        
+        response = headers + response;
     }
     
     close(outputPipe[0]);

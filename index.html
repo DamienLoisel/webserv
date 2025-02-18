@@ -134,8 +134,9 @@
             <textarea id="request-data" placeholder='ex: {"test": "data"}'></textarea>
         </div>
 
-        <!-- Bouton pour envoyer la requête -->
+        <!-- Boutons pour envoyer la requête -->
         <button onclick="sendRequest()">Envoyer la requête</button>
+        <button onclick="openInNewTab()" style="background-color: #28a745;">Ouvrir dans un nouvel onglet</button>
 
         <!-- Affichage de la réponse -->
         <div class="response" id="response"></div>
@@ -184,6 +185,18 @@
                 .catch(error => {
                     document.getElementById('response').textContent = 'Erreur : ' + error.message;
                 });
+        }
+        // Ouvre la requête dans un nouvel onglet
+        function openInNewTab() {
+            const serverAddress = document.getElementById('server-address').value;
+            const serverPort = document.getElementById('server-port').value;
+            const fileName = document.getElementById('file-name').value;
+
+            // Construit l'URL complète
+            const url = `http://${serverAddress}:${serverPort}/${fileName}`;
+            
+            // Ouvre l'URL dans un nouvel onglet
+            window.open(url, '_blank');
         }
     </script>
 </body>
