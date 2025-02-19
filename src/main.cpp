@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/17 03:39:17 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/19 02:26:14 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -72,9 +72,7 @@ int main(int argc, char **argv)
     display(argv[1]);
 	ConfigParser parser;
 	if (parser.parse(argv[1])) {
-	    // Stocke la config dans une variable membre pour la garder en vie
 	    static const ServerConfig config = parser.getServerConfig();
-	    // Initialise la configuration dans HTTPResponse
 	    HTTPResponse::setConfig(&config);
 	    socket(config);
 	}

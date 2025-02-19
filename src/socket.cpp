@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   socket.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 10:35:54 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/17 03:34:08 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/19 02:27:57 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,17 +20,15 @@
 #include <iostream>
 #include <algorithm>
 
-// Déclaration des fonctions
 void handle_client(struct pollfd *fds, int i);
 std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations);
 std::string join(const std::vector<std::string>& vec, const std::string& delimiter);
 
-// Fonction pour trouver la location correspondante à une URI
 std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations)
 {
     for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
     {
-        if (uri.find(it->first) == 0) // Vérifie si l'URI commence par le chemin de la location
+        if (uri.find(it->first) == 0)
         {
             return it->first;
         }
@@ -38,7 +36,6 @@ std::string findLocationForURI(const std::string& uri, const std::map<std::strin
     return "";
 }
 
-// Fonction pour joindre des éléments d'un vecteur en une chaîne
 std::string join(const std::vector<std::string>& vec, const std::string& delimiter)
 {
     std::string result;
@@ -67,10 +64,8 @@ bool socket(const ServerConfig& config)
         return (false);
     }   
 
-    // Socket non-bloquant
     fcntl(socketfd, F_SETFL, O_NONBLOCK);
     
-    // Options socket
     int opt = 1;
     if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
@@ -79,19 +74,16 @@ bool socket(const ServerConfig& config)
         return false;
     }   
 
-    // Configuration adresse
     sockaddr.sin_family = AF_INET;
     sockaddr.sin_addr.s_addr = INADDR_ANY;
-    sockaddr.sin_port = htons(config.listen_port); // Utilisation du port configuré
+    sockaddr.sin_port = htons(config.listen_port);
     
-    // Bind
     if (bind(socketfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
     {
         std::cerr << "Failed to bind to port " << config.listen_port << "." << std::endl;
         return (false);
     }
     
-    // Listen
     if (listen(socketfd, 10) < 0)
     {
         std::cerr << "Failed to listen on socket." << std::endl;
@@ -107,11 +99,9 @@ bool socket(const ServerConfig& config)
      << "╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝    ╚═╝   \n"
      << "\033[0m" "\n" << std::endl;
     
-    // Initialisation poll avec socket serveur
     pollfd server_fd = {socketfd, POLLIN, 0};
     fds.push_back(server_fd);   
 
-    // Boucle principale
     while (true)
     {
         if (poll(fds.data(), fds.size(), -1) < 0) 
@@ -120,10 +110,8 @@ bool socket(const ServerConfig& config)
             break;
         }   
 
-        // Parcours des fds actifs
         for (size_t i = 0; i < fds.size(); i++)
         {
-            // Nouvelle connexion sur socket serveur
             if (fds[i].fd == socketfd && (fds[i].revents & POLLIN))
             {
                 socklen_t addrlen = sizeof(sockaddr);
@@ -136,19 +124,15 @@ bool socket(const ServerConfig& config)
                     std::cerr << "New client connected." << std::endl;
                 }
             }
-            // Données reçues d'un client
             else if (fds[i].revents & POLLIN)
             {
                 handle_client(&fds[0], i);
             }
         }
     }
-
-    // Nettoyage
     for (size_t i = 0; i < fds.size(); i++) {
         close(fds[i].fd);
     }
-    
     return true;
 }
 
@@ -156,12 +140,11 @@ void handle_client(struct pollfd *fds, int i) {
     char buffer[1024];
     std::string request;
     ssize_t bytes_received;
-    const size_t MAX_REQUEST_SIZE = 8192; // 8KB max
+    const size_t MAX_REQUEST_SIZE = 8192;
     struct timeval timeout;
-    timeout.tv_sec = 5;  // 5 secondes timeout
+    timeout.tv_sec = 5;
     timeout.tv_usec = 0;
 
-    // Set socket timeout
     if (setsockopt(fds[i].fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
         std::cerr << "Error setting socket timeout" << std::endl;
         close(fds[i].fd);
@@ -187,12 +170,10 @@ void handle_client(struct pollfd *fds, int i) {
 
         std::cerr << "[DEBUG] Current request:\n" << request << "\n[END REQUEST]" << std::endl;
 
-        // Si on trouve la fin des headers
         size_t header_end = request.find("\r\n\r\n");
         if (header_end != std::string::npos) {
             std::cerr << "[DEBUG] Found end of headers at position " << header_end << std::endl;
             
-            // Chercher Content-Length
             size_t cl_pos = request.find("Content-Length: ");
             if (cl_pos != std::string::npos) {
                 size_t cl_end = request.find("\r\n", cl_pos);
@@ -200,7 +181,6 @@ void handle_client(struct pollfd *fds, int i) {
                     size_t content_length = std::atoi(request.substr(cl_pos + 16, cl_end - (cl_pos + 16)).c_str());
                     std::cerr << "[DEBUG] Content-Length: " << content_length << std::endl;
                     
-                    // Vérifier si on a tout le body
                     size_t current_body_length = request.length() - (header_end + 4);
                     std::cerr << "[DEBUG] Current body length: " << current_body_length << std::endl;
                     
@@ -209,7 +189,9 @@ void handle_client(struct pollfd *fds, int i) {
                         break;
                     }
                 }
-            } else {
+            }
+            else
+            {
                 std::cerr << "[DEBUG] No Content-Length found" << std::endl;
                 break;
             }
@@ -217,19 +199,21 @@ void handle_client(struct pollfd *fds, int i) {
     }
 
     if (bytes_received < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
             std::cerr << "Request timeout" << std::endl;
             std::string error_msg = "HTTP/1.1 408 Request Timeout\r\nContent-Length: 0\r\n\r\n";
             send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
-        } else {
-            std::cerr << "Error receiving data: " << strerror(errno) << std::endl;
         }
+        else
+            std::cerr << "Error receiving data: " << strerror(errno) << std::endl;
         close(fds[i].fd);
         fds[i].fd = -1;
         return;
     }
 
-    if (request.empty()) {
+    if (request.empty())
+    {
         std::cerr << "Client disconnected" << std::endl;
         close(fds[i].fd);
         fds[i].fd = -1;
@@ -247,7 +231,9 @@ void handle_client(struct pollfd *fds, int i) {
         
         HTTPResponse resp;
         resp.handle_request(req, fds[i].fd);
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cerr << "[ERROR] Exception: " << e.what() << std::endl;
         std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nInternal Server Error\n";
         send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);

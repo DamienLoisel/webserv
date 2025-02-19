@@ -6,7 +6,7 @@
 #    By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/01/25 17:18:15 by dloisel           #+#    #+#              #
-#    Updated: 2025/02/17 00:31:01 by dmathis          ###   ########.fr        #
+#    Updated: 2025/02/19 02:28:46 by dmathis          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -23,7 +23,7 @@ CC = c++
 CFLAGS = -Wall -Werror -Wextra -std=c++98 -I src/includes
 
 SRC_DIR = src
-SRC_FILES = main.cpp webserv.cpp parse.cpp socket.cpp ConfigParser.cpp HTTPRequest.cpp HTTPResponse.cpp CGIHandler.cpp
+SRC_FILES = main.cpp parse.cpp socket.cpp ConfigParser.cpp HTTPRequest.cpp HTTPResponse.cpp CGIHandler.cpp
 SRC = $(addprefix $(SRC_DIR)/, $(SRC_FILES))
 
 OBJ_DIR = obj

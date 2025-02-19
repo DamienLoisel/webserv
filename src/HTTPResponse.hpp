@@ -19,7 +19,7 @@
 class HTTPResponse {
 private:
     std::string response;
-    static const ServerConfig* config;  // Configuration du serveur
+    static const ServerConfig* config;
     bool isMethodAllowed(const std::string& uri, const std::string& method);
     bool isCGI(const std::string& uri);
     void executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd);

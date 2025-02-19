@@ -6,7 +6,7 @@
 /*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 15:40:57 by dmathis           #+#    #+#             */
-/*   Updated: 2025/01/26 15:53:11 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/19 02:25:18 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,6 @@
 #include <sys/stat.h>
 #include <ctime>
 
-// Définition de la variable statique
 const ServerConfig* HTTPResponse::config = NULL;
 
 HTTPResponse::HTTPResponse(int status, std::string content_type, std::string body) {
@@ -35,17 +34,15 @@ std::string HTTPResponse::toString() {
 bool HTTPResponse::isCGI(const std::string& uri) {
     if (!config) return false;
 
-    // Vérifie si l'URI commence par /cgi-bin/
     if (uri.find("/cgi-bin/") != 0) {
         return false;
     }
 
-    // Vérifie l'extension
     size_t dot_pos = uri.find_last_of('.');
     if (dot_pos == std::string::npos) return false;
     
     std::string extension = uri.substr(dot_pos);
-    return (extension == ".py" || extension == ".sh");  // Extensions supportées
+    return (extension == ".py" || extension == ".sh");
 }
 
 void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd) {
@@ -53,7 +50,6 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
     std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
     std::cout << "[DEBUG] URI: " << req.getURI() << std::endl;
 
-    // Vérifie que le fichier existe et est accessible
     struct stat script_stat;
     if (stat(script_path.c_str(), &script_stat) != 0) {
         std::cout << "[ERROR] CGI script not found: " << script_path << std::endl;
@@ -61,7 +57,6 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
         return;
     }
 
-    // Vérifie les permissions
     if (!(script_stat.st_mode & S_IRUSR) || !(script_stat.st_mode & S_IXUSR)) {
         std::cout << "[ERROR] CGI script not executable: " << script_path << std::endl;
         sendErrorPage(client_fd, 403, req);
