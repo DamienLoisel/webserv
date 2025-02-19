@@ -342,6 +342,13 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
 
             // Si c'est un répertoire ou si l'URI se termine par /
             if (S_ISDIR(path_stat.st_mode) || uri == "/" || uri[uri.length() - 1] == '/') {
+                // Si autoindex est activé, on affiche le contenu du répertoire
+                if (loc_config.autoindex) {
+                    generateDirectoryListing(full_path, client_fd);
+                    return;
+                }
+                
+                // Sinon on essaie de servir le fichier index
                 std::string index_path;
                 if (!loc_config.index.empty()) {
                     index_path = full_path + (uri == "/" ? "" : "/") + loc_config.index;
@@ -353,8 +360,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 
                 if (stat(index_path.c_str(), &path_stat) == 0) {
                     serveFile(index_path, client_fd);
-                } else if (loc_config.autoindex) {
-                    generateDirectoryListing(full_path, client_fd);
                 } else {
                     sendErrorPage(client_fd, 403, req);
                 }
@@ -480,52 +485,160 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         return;
     }
 
-    std::stringstream html;
-    html << "<html><head><title>Index of " << path << "</title></head><body>";
-    html << "<h1>Index of " << path << "</h1><hr><pre>";
-
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL) {
-        std::string name = entry->d_name;
-        if ((name != ".") && (name != "..")) {
-            struct stat st;
-            std::string full_path = path + "/" + name;
-            if (stat(full_path.c_str(), &st) == 0) {
-                char time_str[26];
-                ctime_r(&st.st_mtime, time_str);
-                time_str[24] = '\0';  // Remove newline
-                
-                html << "<a href=\"" << name;
-                if (S_ISDIR(st.st_mode)) html << "/";
-                html << "\">" << name;
-                if (S_ISDIR(st.st_mode)) html << "/";
-                html << "</a>";
-                
-                html << std::string(50 - name.length(), ' ');
-                html << time_str << "  ";
-                
-                std::stringstream size_str;
-                if (S_ISDIR(st.st_mode)) 
-                    size_str << "-";
-                else 
-                    size_str << st.st_size;
-                
-                html << size_str.str();
-                html << "\n";
+    // Trouver l'URI relative en comparant avec le root de la location
+    std::string location_root;
+    std::string current_uri;
+    
+    // Trouver la location qui correspond au chemin
+    std::map<std::string, LocationConfig>::const_iterator it;
+    for (it = config->locations.begin(); it != config->locations.end(); ++it) {
+        const std::string& loc_path = it->first;
+        const LocationConfig& loc = it->second;
+        
+        if (path.find(loc.root) == 0) {
+            location_root = loc.root;
+            // L'URI commence par le chemin de la location
+            current_uri = loc_path;
+            // Ajouter le reste du chemin s'il y en a
+            if (path.length() > loc.root.length()) {
+                std::string relative_path = path.substr(loc.root.length());
+                // Nettoyer le chemin (enlever les doubles slashes)
+                while (relative_path[0] == '/') {
+                    relative_path = relative_path.substr(1);
+                }
+                if (!relative_path.empty()) {
+                    current_uri += "/" + relative_path;
+                }
             }
+            break;
         }
     }
-    closedir(dir);
 
-    html << "</pre><hr></body></html>";
+    // S'assurer que l'URI se termine par /
+    if (current_uri[current_uri.length() - 1] != '/') {
+        current_uri += "/";
+    }
+
+    std::stringstream html;
+    html << "<html><head><title>Index of " << current_uri << "</title>";
+    html << "<style>";
+    html << "body { ";
+    html << "    background-color: #1a1a1a; ";
+    html << "    color: #c0c0c0; ";
+    html << "    font-family: 'Cinzel', serif; ";
+    html << "    margin: 0; ";
+    html << "    padding: 20px; ";
+    html << "    background-image: linear-gradient(to bottom, #1a1a1a, #2d2d2d); ";
+    html << "    min-height: 100vh; ";
+    html << "}";
+    html << "h1 { ";
+    html << "    color: #8b0000; ";
+    html << "    text-align: center; ";
+    html << "    font-size: 2.5em; ";
+    html << "    text-shadow: 2px 2px 4px #000; ";
+    html << "    margin-bottom: 30px; ";
+    html << "    font-family: 'MedievalSharp', cursive; ";
+    html << "}";
+    html << ".container { ";
+    html << "    background-color: rgba(0, 0, 0, 0.7); ";
+    html << "    border: 2px solid #4a0000; ";
+    html << "    border-radius: 8px; ";
+    html << "    padding: 20px; ";
+    html << "    box-shadow: 0 0 15px rgba(139, 0, 0, 0.3); ";
+    html << "}";
+    html << ".file-list { ";
+    html << "    list-style: none; ";
+    html << "    padding: 0; ";
+    html << "}";
+    html << ".file-item { ";
+    html << "    display: flex; ";
+    html << "    justify-content: space-between; ";
+    html << "    align-items: center; ";
+    html << "    padding: 10px 15px; ";
+    html << "    margin: 5px 0; ";
+    html << "    background-color: rgba(30, 30, 30, 0.9); ";
+    html << "    border: 1px solid #4a0000; ";
+    html << "    border-radius: 4px; ";
+    html << "}";
+    html << ".file-name { ";
+    html << "    color: #d4af37; ";
+    html << "    font-weight: bold; ";
+    html << "}";
+    html << ".file-info { ";
+    html << "    color: #808080; ";
+    html << "    font-size: 0.9em; ";
+    html << "}";
+    html << ".directory { ";
+    html << "    color: #cd7f32; ";
+    html << "}";
+    html << "@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap');";
+    html << "</style>";
+    html << "</head><body>";
+    html << "<h1>Directory of " << current_uri << "</h1>";
+    html << "<div class='container'><ul class='file-list'>";
+
+    // Ajouter le lien vers le dossier parent sauf pour la racine
+    if (current_uri != "/") {
+        html << "<li class='file-item'>";
+        html << "<span class='file-name directory'>..</span>";
+        html << "<span class='file-info'>Parent Directory</span>";
+        html << "</li>";
+    }
+
+    struct dirent* entry;
+    std::vector<std::string> entries;
+    while ((entry = readdir(dir)) != NULL) {
+        std::string name = entry->d_name;
+        if (name != "." && name != "..") {
+            entries.push_back(name);
+        }
+    }
+
+    // Trier les entrées par ordre alphabétique
+    std::sort(entries.begin(), entries.end());
+
+    // Itérer sur les entrées triées
+    std::vector<std::string>::const_iterator name_it;
+    for (name_it = entries.begin(); name_it != entries.end(); ++name_it) {
+        const std::string& name = *name_it;
+        struct stat st;
+        std::string full_path = path + "/" + name;
+        if (stat(full_path.c_str(), &st) == 0) {
+            char time_str[26];
+            ctime_r(&st.st_mtime, time_str);
+            time_str[24] = '\0';  // Remove newline
+            
+            html << "<li class='file-item'>";
+            html << "<span class='file-name";
+            if (S_ISDIR(st.st_mode)) html << " directory";
+            html << "'>" << name;
+            if (S_ISDIR(st.st_mode)) html << "/";
+            html << "</span>";
+            
+            std::stringstream info;
+            info << time_str << " - ";
+            if (S_ISDIR(st.st_mode)) 
+                info << "Directory";
+            else 
+                info << st.st_size << " bytes";
+            
+            html << "<span class='file-info'>" << info.str() << "</span>";
+            html << "</li>";
+        }
+    }
+    
+    html << "</ul></div></body></html>";
     
     HTTPResponse resp(200, "text/html", html.str());
     send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+    
+    closedir(dir);  // Fermer le répertoire dans tous les cas
 }
 
 std::string HTTPResponse::findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations) {
     std::string best_match = "/";
-    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it) {
+    std::map<std::string, LocationConfig>::const_iterator it;
+    for (it = locations.begin(); it != locations.end(); ++it) {
         if ((uri.find(it->first) == 0) && (it->first.length() > best_match.length())) {
             best_match = it->first;
         }

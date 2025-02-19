@@ -41,39 +41,46 @@ std::vector<std::string> ConfigParser::split(const std::string& s, char delimite
 
 void ConfigParser::parseLocationBlock(std::istringstream& block_stream, LocationConfig& loc)
 {
-	std::string line, key;
-	while (std::getline(block_stream, line) && line.find("}") == std::string::npos)
-	{
-		trim(line);
-		if (line.empty()) continue;
+    // Initialiser autoindex à false par défaut
+    loc.autoindex = false;
+    
+    std::string line, key;
+    while (std::getline(block_stream, line) && line.find("}") == std::string::npos)
+    {
+        trim(line);
+        if (line.empty()) continue;
 
-		std::istringstream line_stream(line);
-		line_stream >> key;
+        std::istringstream line_stream(line);
+        line_stream >> key;
 
-		if (key == "root") line_stream >> loc.root;
-		else if (key == "autoindex") line_stream >> loc.autoindex;
-		else if (key == "allow_methods") 
-		{
-			std::string method;
-			while (line_stream >> method)
-				loc.allowed_methods.push_back(method);
-		}
-		else if (key == "index") line_stream >> loc.index;
-		else if (key == "return") line_stream >> loc.return_path;
-		else if (key == "alias") line_stream >> loc.alias;
-		else if (key == "cgi_path") 
-		{
-			std::string path;
-			while (line_stream >> path)
-				loc.cgi_path += path + " ";
-		}
-		else if (key == "cgi_ext") 
-		{
-			std::string ext;
-			while (line_stream >> ext)
-				loc.cgi_ext.push_back(ext);
-		}
-	}
+        if (key == "root") line_stream >> loc.root;
+        else if (key == "autoindex") {
+            std::string value;
+            line_stream >> value;
+            loc.autoindex = (value == "on");
+        }
+        else if (key == "allow_methods") 
+        {
+            std::string method;
+            while (line_stream >> method)
+                loc.allowed_methods.push_back(method);
+        }
+        else if (key == "index") line_stream >> loc.index;
+        else if (key == "return") line_stream >> loc.return_path;
+        else if (key == "alias") line_stream >> loc.alias;
+        else if (key == "cgi_path") 
+        {
+            std::string path;
+            while (line_stream >> path)
+                loc.cgi_path += path + " ";
+        }
+        else if (key == "cgi_ext") 
+        {
+            std::string ext;
+            while (line_stream >> ext)
+                loc.cgi_ext.push_back(ext);
+        }
+    }
 }
 
 bool ConfigParser::parse(const std::string& filename)
