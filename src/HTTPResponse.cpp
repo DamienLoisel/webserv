@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 15:40:57 by dmathis           #+#    #+#             */
-/*   Updated: 2025/02/19 12:34:03 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/19 15:08:18 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -274,6 +274,25 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         
         std::cout << "[DEBUG] Handling request for URI: " << uri << std::endl;
         std::cout << "[DEBUG] Method: " << method << std::endl;
+
+        // Vérifier le host
+        std::string host = req.getHeader("Host");
+        if (host.empty()) {
+            std::cout << "[DEBUG] No Host header found" << std::endl;
+            sendErrorPage(client_fd, 400, req);
+            return;
+        }
+
+        // Extraire le hostname sans le port
+        size_t colon_pos = host.find(':');
+        std::string hostname = (colon_pos != std::string::npos) ? host.substr(0, colon_pos) : host;
+
+        // Vérifier que le hostname correspond à la configuration
+        if (hostname != config->host) {
+            std::cout << "[DEBUG] Host mismatch. Got: " << hostname << ", Expected: " << config->host << std::endl;
+            sendErrorPage(client_fd, 400, req);
+            return;
+        }
 
         // Vérifier si la méthode est autorisée
         if (!isMethodAllowed(uri, method)) {
