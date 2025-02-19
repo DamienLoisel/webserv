@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 15:08:05 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/19 22:38:51 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,15 +66,30 @@ void	display(char *conf)
 
 int main(int argc, char **argv)
 {
-    (void)argv;
+	ConfigParser	parser;
+	char			*default_conf = strdup("conf/webserv.conf");
+	
     if (!parse(argc, argv))
-        return (1);
-    display(argv[1]);
-	ConfigParser parser;
-	if (parser.parse(argv[1])) {
-	    static const ServerConfig config = parser.getServerConfig();
-	    HTTPResponse::setConfig(&config);
-	    socket(config);
+		return (1);
+	if (argv[1])
+	{
+    	display(argv[1]);
+		if (parser.parse(argv[1])) 
+		{
+			static const ServerConfig config = parser.getServerConfig();
+			HTTPResponse::setConfig(&config);
+			socket(config);
+		}
+	}
+	else
+	{
+		display(default_conf);
+		if (parser.parse(default_conf))
+		{
+			static const ServerConfig config = parser.getServerConfig();
+			HTTPResponse::setConfig(&config);
+			socket(config);
+		}
 	}
     return (0);
 }
