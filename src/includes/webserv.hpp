@@ -38,9 +38,18 @@
 # include <map>
 # include <vector>
 # include <fstream>
+# include <string>
 # include "ConfigTypes.hpp"
 
+// Variables globales
+extern volatile sig_atomic_t g_running;
+extern std::vector<pollfd>* g_fds;
+
+// Déclarations des fonctions
 bool parse(int argc, char **argv);
 bool socket(const ServerConfig& config);
+void handle_client(struct pollfd *fds, int i);
+void signal_handler(int signum);
+void cleanup_resources();
 
 #endif

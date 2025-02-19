@@ -78,56 +78,112 @@ void ConfigParser::parseLocationBlock(std::istringstream& block_stream, Location
 
 bool ConfigParser::parse(const std::string& filename)
 {
-	std::ifstream config_file(filename.c_str());
-	if (!config_file.is_open()) 
-	{
-		std::cerr << "Cannot open configuration file" << std::endl;
-		return false;
-	}
-	std::string line, key;
-	std::string current_block;
-	while (std::getline(config_file, line)) 
-	{
-		trim(line);
-		if (line.empty() || line[0] == '#') continue;
-		if (line == "server {") 
-		{
-			current_block = "server";
-			continue;
-		}
-		if (current_block == "server") {
-			if (line.find("location") != std::string::npos) {
-				std::string location_name = line.substr(9, line.length() - 11);
-				LocationConfig loc;
-				
-				std::istringstream location_stream(line);
-				std::string block_line;
-				std::string block_content;
-				while (std::getline(config_file, block_line) && block_line.find("}") == std::string::npos)
-					block_content += block_line + "\n";
-				std::istringstream block_stream(block_content);
-				parseLocationBlock(block_stream, loc);
-				server.locations[location_name] = loc;
-				continue;
-			}
+    std::ifstream file(filename.c_str());
+    if (!file.is_open()) {
+        std::cerr << "Error: Cannot open config file" << std::endl;
+        return false;
+    }
 
-			std::istringstream line_stream(line);
-			line_stream >> key;
+    std::string line;
+    ServerConfig current_server;
+    bool in_server_block = false;
+    std::string block_content;
 
-			if (key == "listen") line_stream >> server.listen_port;
-			else if (key == "host") line_stream >> server.host;
-			else if (key == "server_name") line_stream >> server.server_name;
-			else if (key == "error_page") line_stream >> server.error_page;
-			else if (key == "client_max_body_size") line_stream >> server.client_max_body_size;
-			else if (key == "root") line_stream >> server.root;
-			else if (key == "index") line_stream >> server.index;
-		}
-		if (line == "}") current_block = "";
-	}
-	return true;
+    while (std::getline(file, line)) {
+        trim(line);
+        if (line.empty() || line[0] == '#') continue;
+
+        if (line.find("server {") != std::string::npos) {
+            if (in_server_block) {
+                std::cerr << "Error: Nested server blocks not allowed" << std::endl;
+                return false;
+            }
+            in_server_block = true;
+            current_server = ServerConfig();
+            continue;
+        }
+
+        if (line == "}") {
+            if (in_server_block) {
+                servers.push_back(current_server);
+                if (servers.size() > MAX_SERVERS) {
+                    std::cerr << "Error: Maximum number of servers (" << MAX_SERVERS << ") exceeded" << std::endl;
+                    return false;
+                }
+                in_server_block = false;
+            }
+            continue;
+        }
+
+        if (in_server_block) {
+            if (line.find("location") == 0) {
+                std::string location_path = line.substr(9);
+                trim(location_path);
+                size_t brace_pos = location_path.find("{");
+                if (brace_pos != std::string::npos) {
+                    location_path = location_path.substr(0, brace_pos);
+                    trim(location_path);
+                }
+                
+                LocationConfig loc;
+                std::string location_block;
+                while (std::getline(file, line) && line.find("}") == std::string::npos) {
+                    location_block += line + "\n";
+                }
+                std::istringstream block_stream(location_block);
+                parseLocationBlock(block_stream, loc);
+                current_server.locations[location_path] = loc;
+            } else {
+                std::istringstream line_stream(line);
+                std::string key;
+                line_stream >> key;
+
+                if (key == "listen") {
+                    line_stream >> current_server.listen_port;
+                }
+                else if (key == "host") {
+                    line_stream >> current_server.host;
+                }
+                else if (key == "server_name") {
+                    line_stream >> current_server.server_name;
+                }
+                else if (key == "error_page") {
+                    line_stream >> current_server.error_page;
+                }
+                else if (key == "client_max_body_size") {
+                    line_stream >> current_server.client_max_body_size;
+                }
+                else if (key == "root") {
+                    line_stream >> current_server.root;
+                }
+                else if (key == "index") {
+                    line_stream >> current_server.index;
+                }
+            }
+        }
+    }
+
+    if (servers.empty()) {
+        std::cerr << "Error: No server configuration found" << std::endl;
+        return false;
+    }
+
+    if (!checkDuplicateServers()) {
+        std::cerr << "Error: Duplicate server configurations (same IP:port) found" << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
-const ServerConfig& ConfigParser::getServerConfig() const 
-{ 
-	return server; 
+bool ConfigParser::checkDuplicateServers() const {
+    for (size_t i = 0; i < servers.size(); ++i) {
+        for (size_t j = i + 1; j < servers.size(); ++j) {
+            if (servers[i].host == servers[j].host && 
+                servers[i].listen_port == servers[j].listen_port) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
