@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webserv - GET Requests</title>
+    <title>Webserv - CGI Python Scripts</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -48,7 +48,7 @@
 
         button {
             padding: 15px 20px;
-            background-color: #4a90e2;
+            background-color: #28a745; /* Green color for CGI */
             color: white;
             border: none;
             border-radius: 4px;
@@ -59,7 +59,7 @@
         }
 
         button:hover {
-            background-color: #357abd;
+            background-color: #218838; /* Darker green on hover */
         }
 
         .unicorn {
@@ -77,26 +77,35 @@
 <body>
     <div class="container">
         <div class="unicorn">🦄</div>
-        <h1>Webserv</h1>
-        <h1>GET Requests</h1>
+        <h1>Webserv - CGI Python Scripts</h1>
 
         <div class="button-container">
-            <button onclick="sendRequest('/GET/goodboy')">GET 1 - Woof!!!</button>
-            <button onclick="sendRequest('/GET/hummingbird')">GET 2 - Pierre Rabhi</button>
-            <button onclick="sendRequest('/GET/popeye.txt')">GET 3 - Popeye</button>
-            <button onclick="sendRequest('/GET/sonic')">GET 4 - Sonic</button>
-            <button onclick="sendRequest('/forbidden/pepe')">GET 5 - Pepe</button>
-            <button onclick="sendRequest('/GET/roucool')">GET 6 - Roucool</button>
+            <button onclick="executeCgiScript('/cgi-bin/non-executable.py')">Script 1 - Non executable</button>
+            <button onclick="executeCgiScript('/cgi-bin/unicorn-cgi.py')">Script 2 - Unicorn</button>
+            <button onclick="executeCgiScript('/cgi-bin/notfound.py')">Script 3 - Not found</button>
+            <button onclick="executeCgiScript('/cgi-bin/infinite-loop.py')">Script 4 - Infinite loop</button>
         </div>
     </div>
 
     <script>
-        function sendRequest(endpoint) {
+        async function executeCgiScript(scriptPath) {
             const serverAddress = 'localhost';
             const serverPort = '7000';
-            const url = `http://${serverAddress}:${serverPort}${endpoint}`;
+            const url = `http://${serverAddress}:${serverPort}${scriptPath}`;
 
-            window.open(url, '_blank');
+            try {
+                const response = await fetch(url);
+
+                const responseText = await response.text();
+
+                const newTab = window.open();
+                newTab.document.write(`<pre>${responseText}</pre>`);
+                newTab.document.close();
+            } catch (error) {
+                const newTab = window.open();
+                newTab.document.write(`<pre>Error: ${error.message}</pre>`);
+                newTab.document.close();
+            }
         }
     </script>
 </body>

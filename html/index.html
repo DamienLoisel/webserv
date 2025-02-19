@@ -54,7 +54,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: bold; /* Bold text */
+            font-weight: bold;
             transition: background-color 0.3s;
         }
 
@@ -106,29 +106,28 @@
 
     <script>
         function openInNewTab(method) {
-            const serverAddress = 'localhost'; // Replace with your server address
-            const serverPort = '7000'; // Replace with your server port
+            const serverAddress = 'localhost';
+            const serverPort = '7000';
             let url = `http://${serverAddress}:${serverPort}/`;
 
             switch (method) {
                 case 'GET':
-                    url += 'html/GET.html'; // Replace with your GET page path
+                    url += 'html/GET.html';
                     break;
                 case 'POST':
-                    url += 'html/POST.html'; // Replace with your POST page path
+                    url += 'html/POST.html';
                     break;
                 case 'DELETE':
-                    url += 'html/DELETE.html'; // Replace with your DELETE page path
+                    url += 'html/DELETE.html';
                     break;
                 case 'CGI':
-                    url += 'html/CGI.html'; // Replace with your CGI page path
+                    url += 'html/CGI.html';
                     break;
                 default:
                     console.error('Unrecognized method');
                     return;
             }
 
-            // Open the URL in a new tab
             window.open(url, '_blank');
         }
     </script>

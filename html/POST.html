@@ -81,7 +81,6 @@
         <h1>POST Requests</h1>
 
         <div class="button-container">
-            <!-- Buttons for predefined POST requests -->
             <button onclick="sendPostRequest('/POST/submit-form', { name: 'Bernard', age: 11 })">POST 1 - Submit Form</button>
             <button onclick="sendPostRequest('/POST/upload-data', { file: 'data.txt', content: 'Hello World' })">POST 2 - Upload Data</button>
             <button onclick="sendPostRequest('/POST/create-user', { username: 'Germaine', email: 'germaine@aol.com' })">POST 3 - Create User</button>
@@ -90,14 +89,12 @@
     </div>
 
     <script>
-        // Function to send a POST request and open the result in a new tab
         async function sendPostRequest(endpoint, data) {
-            const serverAddress = 'localhost'; // Server address
-            const serverPort = '7000'; // Server port
+            const serverAddress = 'localhost';
+            const serverPort = '7000';
             const url = `http://${serverAddress}:${serverPort}${endpoint}`;
 
             try {
-                // Send the POST request using fetch
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
@@ -106,15 +103,12 @@
                     body: JSON.stringify(data),
                 });
 
-                // Get the response text
                 const responseText = await response.text();
 
-                // Open the response in a new tab
                 const newTab = window.open();
                 newTab.document.write(`<pre>${responseText}</pre>`);
                 newTab.document.close();
             } catch (error) {
-                // Handle errors (e.g., network issues)
                 const newTab = window.open();
                 newTab.document.write(`<pre>Error: ${error.message}</pre>`);
                 newTab.document.close();

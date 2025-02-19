@@ -48,7 +48,7 @@
 
         button {
             padding: 15px 20px;
-            background-color: #e24a4a; /* Red color for DELETE */
+            background-color: #e24a4a;
             color: white;
             border: none;
             border-radius: 4px;
@@ -59,7 +59,7 @@
         }
 
         button:hover {
-            background-color: #bd3535; /* Darker red on hover */
+            background-color: #bd3535;
         }
 
         .unicorn {
@@ -81,7 +81,6 @@
         <h1>DELETE Requests</h1>
 
         <div class="button-container">
-            <!-- Buttons for predefined DELETE requests -->
             <button onclick="sendDeleteRequest('/DELETE/goat.txt')">DELETE 1 - Goat</button>
             <button onclick="sendDeleteRequest('/DELETE/guez.txt')">DELETE 2 - Guez</button>
             <button onclick="sendDeleteRequest('/src/main.cpp.txt')">DELETE 3 - src/main.cpp</button>
@@ -90,27 +89,21 @@
     </div>
 
     <script>
-        // Function to send a DELETE request and open the result in a new tab
         async function sendDeleteRequest(endpoint) {
-            const serverAddress = 'localhost'; // Server address
-            const serverPort = '7000'; // Server port
+            const serverAddress = 'localhost';
+            const serverPort = '7000';
             const url = `http://${serverAddress}:${serverPort}${endpoint}`;
 
             try {
-                // Send the DELETE request using fetch
                 const response = await fetch(url, {
                     method: 'DELETE',
                 });
 
-                // Get the response text
                 const responseText = await response.text();
-
-                // Open the response in a new tab
                 const newTab = window.open();
                 newTab.document.write(`<pre>${responseText}</pre>`);
                 newTab.document.close();
             } catch (error) {
-                // Handle errors (e.g., network issues)
                 const newTab = window.open();
                 newTab.document.write(`<pre>Error: ${error.message}</pre>`);
                 newTab.document.close();
