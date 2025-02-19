@@ -20,6 +20,11 @@
 #include <iostream>
 #include <algorithm>
 
+// Déclaration des fonctions
+void handle_client(struct pollfd *fds, int i);
+std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations);
+std::string join(const std::vector<std::string>& vec, const std::string& delimiter);
+
 // Fonction pour trouver la location correspondante à une URI
 std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations)
 {
@@ -53,13 +58,12 @@ bool socket(const ServerConfig& config)
     int socketfd;
     sockaddr_in sockaddr;
     std::vector<pollfd> fds;
-    char buffer[1024];
 
     // Création socket
     socketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd == -1)
     {
-        std::cout << "Failed to create socket." << std::endl;
+        std::cerr << "Failed to create socket." << std::endl;
         return (false);
     }   
 
@@ -70,7 +74,7 @@ bool socket(const ServerConfig& config)
     int opt = 1;
     if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
-        std::cout << "Failed to set socket options." << std::endl;
+        std::cerr << "Failed to set socket options." << std::endl;
         close(socketfd);
         return false;
     }   
@@ -83,18 +87,18 @@ bool socket(const ServerConfig& config)
     // Bind
     if (bind(socketfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
     {
-        std::cout << "Failed to bind to port " << config.listen_port << "." << std::endl;
+        std::cerr << "Failed to bind to port " << config.listen_port << "." << std::endl;
         return (false);
     }
     
     // Listen
     if (listen(socketfd, 10) < 0)
     {
-        std::cout << "Failed to listen on socket." << std::endl;
+        std::cerr << "Failed to listen on socket." << std::endl;
         return (false);
     }   
 
-    std::cout <<  "\033[1;32m" 
+    std::cerr <<  "\033[1;32m" 
      << "\n""███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     ██████╗ ███████╗ █████╗ ██████╗ ██╗   ██╗\n"
      << "██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗    ██╔══██╗██╔════╝██╔══██╗██╔══██╗╚██╗ ██╔╝\n"
      << "███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    ██████╔╝█████╗  ███████║██║  ██║ ╚████╔╝ \n"
@@ -112,7 +116,7 @@ bool socket(const ServerConfig& config)
     {
         if (poll(fds.data(), fds.size(), -1) < 0) 
         {
-            std::cout << "Poll failed." << std::endl;
+            std::cerr << "Poll failed." << std::endl;
             break;
         }   
 
@@ -129,48 +133,13 @@ bool socket(const ServerConfig& config)
                     fcntl(client_fd, F_SETFL, O_NONBLOCK);
                     pollfd client = {client_fd, POLLIN, 0};
                     fds.push_back(client);
-                    std::cout << "New client connected." << std::endl;
+                    std::cerr << "New client connected." << std::endl;
                 }
             }
             // Données reçues d'un client
             else if (fds[i].revents & POLLIN)
             {
-                memset(buffer, 0, sizeof(buffer));
-                ssize_t bytes = recv(fds[i].fd, buffer, sizeof(buffer), 0);
-                
-                if (bytes <= 0)
-                {
-                    std::cout << "Client disconnected." << std::endl;
-                    close(fds[i].fd);
-                    fds.erase(fds.begin() + i);
-                    i--;
-                }
-                else
-                {
-                    std::cout << "Received: " << buffer << std::endl;
-                    try {
-                        HTTPRequest request(buffer);
-                        // Créer une instance de HTTPResponse pour les erreurs
-                        HTTPResponse error_response(500, "text/plain", "Internal Server Error");
-
-                        try {
-                            error_response.handle_request(request, fds[i].fd);
-                        } catch (const std::runtime_error& e) {
-                            std::string error = e.what();
-                            std::cout << "Error handling request: " << error << std::endl;
-                            
-                            if (error == "501 Not Implemented") {
-                                HTTPResponse resp(501, "text/plain", "Not Implemented");
-                                send(fds[i].fd, resp.toString().c_str(), resp.toString().length(), 0);
-                            } else {
-                                send(fds[i].fd, error_response.toString().c_str(), error_response.toString().length(), 0);
-                            }
-                        }
-                    } catch (...) {
-                        HTTPResponse resp(500, "text/plain", "Internal Server Error");
-                        send(fds[i].fd, resp.toString().c_str(), resp.toString().length(), 0);
-                    }
-                }
+                handle_client(&fds[0], i);
             }
         }
     }
@@ -181,4 +150,106 @@ bool socket(const ServerConfig& config)
     }
     
     return true;
+}
+
+void handle_client(struct pollfd *fds, int i) {
+    char buffer[1024];
+    std::string request;
+    ssize_t bytes_received;
+    const size_t MAX_REQUEST_SIZE = 8192; // 8KB max
+    struct timeval timeout;
+    timeout.tv_sec = 5;  // 5 secondes timeout
+    timeout.tv_usec = 0;
+
+    // Set socket timeout
+    if (setsockopt(fds[i].fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
+        std::cerr << "Error setting socket timeout" << std::endl;
+        close(fds[i].fd);
+        fds[i].fd = -1;
+        return;
+    }
+
+    std::cerr << "\n[DEBUG] Starting to read request..." << std::endl;
+
+    while ((bytes_received = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0)) > 0) {
+        std::cerr << "[DEBUG] Received " << bytes_received << " bytes" << std::endl;
+        
+        if (request.length() + bytes_received > MAX_REQUEST_SIZE) {
+            std::string error_msg = "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 0\r\n\r\n";
+            send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
+            close(fds[i].fd);
+            fds[i].fd = -1;
+            return;
+        }
+
+        buffer[bytes_received] = '\0';
+        request += buffer;
+
+        std::cerr << "[DEBUG] Current request:\n" << request << "\n[END REQUEST]" << std::endl;
+
+        // Si on trouve la fin des headers
+        size_t header_end = request.find("\r\n\r\n");
+        if (header_end != std::string::npos) {
+            std::cerr << "[DEBUG] Found end of headers at position " << header_end << std::endl;
+            
+            // Chercher Content-Length
+            size_t cl_pos = request.find("Content-Length: ");
+            if (cl_pos != std::string::npos) {
+                size_t cl_end = request.find("\r\n", cl_pos);
+                if (cl_end != std::string::npos) {
+                    size_t content_length = std::atoi(request.substr(cl_pos + 16, cl_end - (cl_pos + 16)).c_str());
+                    std::cerr << "[DEBUG] Content-Length: " << content_length << std::endl;
+                    
+                    // Vérifier si on a tout le body
+                    size_t current_body_length = request.length() - (header_end + 4);
+                    std::cerr << "[DEBUG] Current body length: " << current_body_length << std::endl;
+                    
+                    if (current_body_length >= content_length) {
+                        std::cerr << "[DEBUG] Got complete body" << std::endl;
+                        break;
+                    }
+                }
+            } else {
+                std::cerr << "[DEBUG] No Content-Length found" << std::endl;
+                break;
+            }
+        }
+    }
+
+    if (bytes_received < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            std::cerr << "Request timeout" << std::endl;
+            std::string error_msg = "HTTP/1.1 408 Request Timeout\r\nContent-Length: 0\r\n\r\n";
+            send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
+        } else {
+            std::cerr << "Error receiving data: " << strerror(errno) << std::endl;
+        }
+        close(fds[i].fd);
+        fds[i].fd = -1;
+        return;
+    }
+
+    if (request.empty()) {
+        std::cerr << "Client disconnected" << std::endl;
+        close(fds[i].fd);
+        fds[i].fd = -1;
+        return;
+    }
+
+    try {
+        std::cerr << "[DEBUG] Creating HTTPRequest..." << std::endl;
+        HTTPRequest req(request.c_str());
+        std::cerr << "[DEBUG] Created HTTPRequest" << std::endl;
+        
+        std::cerr << "[DEBUG] Method: " << req.getMethod() << std::endl;
+        std::cerr << "[DEBUG] URI: " << req.getURI() << std::endl;
+        std::cerr << "[DEBUG] Body: " << req.getBody() << std::endl;
+        
+        HTTPResponse resp;
+        resp.handle_request(req, fds[i].fd);
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Exception: " << e.what() << std::endl;
+        std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nInternal Server Error\n";
+        send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
+    }
 }
