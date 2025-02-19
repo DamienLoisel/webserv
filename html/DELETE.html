@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webserv - Request Tester</title>
+    <title>Webserv - Predefined DELETE Requests</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -48,34 +48,18 @@
 
         button {
             padding: 15px 20px;
-            background-color: #4a90e2;
+            background-color: #e24a4a; /* Red color for DELETE */
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: bold; /* Bold text */
+            font-weight: bold;
             transition: background-color 0.3s;
         }
 
         button:hover {
-            background-color: #357abd;
-        }
-
-        button.delete {
-            background-color: #e24a4a;
-        }
-
-        button.delete:hover {
-            background-color: #bd3535;
-        }
-
-        button.cgi {
-            background-color: #28a745;
-        }
-
-        button.cgi:hover {
-            background-color: #218838;
+            background-color: #bd3535; /* Darker red on hover */
         }
 
         .unicorn {
@@ -94,42 +78,43 @@
     <div class="container">
         <div class="unicorn">🦄</div>
         <h1>Webserv</h1>
-        <h1>Request Tester</h1>
+        <h1>DELETE Requests</h1>
 
         <div class="button-container">
-            <button onclick="openInNewTab('GET')">GET</button>
-            <button onclick="openInNewTab('POST')">POST</button>
-            <button class="delete" onclick="openInNewTab('DELETE')">DELETE</button>
-            <button class="cgi" onclick="openInNewTab('CGI')">CGI</button>
+            <!-- Buttons for predefined DELETE requests -->
+            <button onclick="sendDeleteRequest('/DELETE/goat.txt')">DELETE 1 - Goat</button>
+            <button onclick="sendDeleteRequest('/DELETE/guez.txt')">DELETE 2 - Guez</button>
+            <button onclick="sendDeleteRequest('/src/main.cpp.txt')">DELETE 3 - src/main.cpp</button>
+            <button onclick="sendDeleteRequest('/Makefile')">DELETE 4 - Makefile</button>
         </div>
     </div>
 
     <script>
-        function openInNewTab(method) {
-            const serverAddress = 'localhost'; // Replace with your server address
-            const serverPort = '7000'; // Replace with your server port
-            let url = `http://${serverAddress}:${serverPort}/`;
+        // Function to send a DELETE request and open the result in a new tab
+        async function sendDeleteRequest(endpoint) {
+            const serverAddress = 'localhost'; // Server address
+            const serverPort = '7000'; // Server port
+            const url = `http://${serverAddress}:${serverPort}${endpoint}`;
 
-            switch (method) {
-                case 'GET':
-                    url += 'html/GET.html'; // Replace with your GET page path
-                    break;
-                case 'POST':
-                    url += 'html/POST.html'; // Replace with your POST page path
-                    break;
-                case 'DELETE':
-                    url += 'html/DELETE.html'; // Replace with your DELETE page path
-                    break;
-                case 'CGI':
-                    url += 'html/CGI.html'; // Replace with your CGI page path
-                    break;
-                default:
-                    console.error('Unrecognized method');
-                    return;
+            try {
+                // Send the DELETE request using fetch
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                });
+
+                // Get the response text
+                const responseText = await response.text();
+
+                // Open the response in a new tab
+                const newTab = window.open();
+                newTab.document.write(`<pre>${responseText}</pre>`);
+                newTab.document.close();
+            } catch (error) {
+                // Handle errors (e.g., network issues)
+                const newTab = window.open();
+                newTab.document.write(`<pre>Error: ${error.message}</pre>`);
+                newTab.document.close();
             }
-
-            // Open the URL in a new tab
-            window.open(url, '_blank');
         }
     </script>
 </body>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webserv - Request Tester</title>
+    <title>Webserv - GET Requests</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -54,28 +54,12 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: bold; /* Bold text */
+            font-weight: bold;
             transition: background-color 0.3s;
         }
 
         button:hover {
             background-color: #357abd;
-        }
-
-        button.delete {
-            background-color: #e24a4a;
-        }
-
-        button.delete:hover {
-            background-color: #bd3535;
-        }
-
-        button.cgi {
-            background-color: #28a745;
-        }
-
-        button.cgi:hover {
-            background-color: #218838;
         }
 
         .unicorn {
@@ -94,39 +78,25 @@
     <div class="container">
         <div class="unicorn">🦄</div>
         <h1>Webserv</h1>
-        <h1>Request Tester</h1>
+        <h1>GET Requests</h1>
 
         <div class="button-container">
-            <button onclick="openInNewTab('GET')">GET</button>
-            <button onclick="openInNewTab('POST')">POST</button>
-            <button class="delete" onclick="openInNewTab('DELETE')">DELETE</button>
-            <button class="cgi" onclick="openInNewTab('CGI')">CGI</button>
+            <!-- Buttons for predefined GET requests -->
+            <button onclick="sendRequest('/GET/goodboy')">GET 1 - Woof!!!</button>
+            <button onclick="sendRequest('/GET/hummingbird')">GET 2 - Pierre Rabhi</button>
+            <button onclick="sendRequest('/GET/popeye.txt')">GET 3 - Popeye</button>
+            <button onclick="sendRequest('/GET/sonic')">GET 4 - Sonic</button>
+            <button onclick="sendRequest('/forbidden/pepe')">GET 5 - Pepe</button>
+            <button onclick="sendRequest('/GET/roucool')">GET 6 - Roucool</button>
         </div>
     </div>
 
     <script>
-        function openInNewTab(method) {
-            const serverAddress = 'localhost'; // Replace with your server address
-            const serverPort = '7000'; // Replace with your server port
-            let url = `http://${serverAddress}:${serverPort}/`;
-
-            switch (method) {
-                case 'GET':
-                    url += 'html/GET.html'; // Replace with your GET page path
-                    break;
-                case 'POST':
-                    url += 'html/POST.html'; // Replace with your POST page path
-                    break;
-                case 'DELETE':
-                    url += 'html/DELETE.html'; // Replace with your DELETE page path
-                    break;
-                case 'CGI':
-                    url += 'html/CGI.html'; // Replace with your CGI page path
-                    break;
-                default:
-                    console.error('Unrecognized method');
-                    return;
-            }
+        // Function to send a GET request and open the result in a new tab
+        function sendRequest(endpoint) {
+            const serverAddress = 'localhost'; // Server address
+            const serverPort = '7000'; // Server port
+            const url = `http://${serverAddress}:${serverPort}${endpoint}`;
 
             // Open the URL in a new tab
             window.open(url, '_blank');
