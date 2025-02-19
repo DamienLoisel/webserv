@@ -13,6 +13,7 @@ private:
 
     void setupEnvironment(const std::string& method, const std::string& queryString);
     char** createEnvArray();
+    void cleanupEnvArray(char** env);
 
 public:
     CGIHandler(const std::string& scriptPath);

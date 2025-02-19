@@ -1,34 +1,39 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   HTTPResponse.hpp                                   :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/01/26 13:47:21 by dmathis           #+#    #+#             */
-/*   Updated: 2025/01/26 15:44:32 by dmathis          ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #ifndef HTTPRESPONSE_HPP
-# define HTTPRESPONSE_HPP
+#define HTTPRESPONSE_HPP
 
-# include "webserv.hpp"
-# include "HTTPRequest.hpp"
-# include "CGIHandler.hpp"
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/select.h>
+#include <signal.h>
+#include <algorithm>
+#include "HTTPRequest.hpp"
+#include "CGIHandler.hpp"
+#include "ConfigTypes.hpp"
 
 class HTTPResponse {
 private:
     std::string response;
-    
-    static bool isCGI(const std::string& uri);
-    static void executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd);
-    
+    static const ServerConfig* config;
+    bool isMethodAllowed(const std::string& uri, const std::string& method);
+    bool isCGI(const std::string& uri);
+    void executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd);
+    void sendErrorPage(int client_fd, int status_code, HTTPRequest& req);
+    void serveFile(const std::string& path, int client_fd);
+    void generateDirectoryListing(const std::string& path, int client_fd);
+    std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations);
+
 public:
+    HTTPResponse() {}
     HTTPResponse(int status, std::string content_type, std::string body);
     std::string toString();
-
-    static void handle_request(HTTPRequest& req, int client_fd);
+    void handle_request(HTTPRequest& req, int client_fd);
+    static void setConfig(const ServerConfig* cfg) { config = cfg; }
 };
 
 #endif

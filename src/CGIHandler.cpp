@@ -34,6 +34,14 @@ char** CGIHandler::createEnvArray() {
     return env;
 }
 
+void CGIHandler::cleanupEnvArray(char** env) {
+    if (!env) return;
+    for (int i = 0; env[i] != NULL; i++) {
+        delete(env[i]);
+    }
+    delete[] env;
+}
+
 std::string CGIHandler::executeCGI(const std::string& method, const std::string& queryString, const std::string& requestBody)
 {
     _requestBody = requestBody;
@@ -63,6 +71,7 @@ std::string CGIHandler::executeCGI(const std::string& method, const std::string&
         char** env = createEnvArray();
         char* args[] = { const_cast<char*>(_scriptPath.c_str()), NULL };
         execve(_scriptPath.c_str(), args, env);
+        cleanupEnvArray(env);
         _exit(1);
     }
 

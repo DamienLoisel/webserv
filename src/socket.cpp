@@ -6,7 +6,7 @@
 /*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 10:35:54 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 02:27:57 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/19 03:13:01 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,8 +19,31 @@
 #include <fcntl.h>
 #include <iostream>
 #include <algorithm>
+#include <signal.h>
+
+std::vector<pollfd>* g_fds = NULL;
+volatile sig_atomic_t g_running = 1;
+
+void cleanup_resources() {
+    if (g_fds != NULL) {
+        for (size_t i = 0; i < g_fds->size(); i++) {
+            if ((*g_fds)[i].fd >= 0) {
+                close((*g_fds)[i].fd);
+            }
+        }
+        g_fds = NULL;
+    }
+}
+
+void signal_handler(int signum) {
+    if (signum == SIGINT) {
+        std::cerr << "\nReceived SIGINT. Cleaning up and exiting..." << std::endl;
+        g_running = 0;
+    }
+}
 
 void handle_client(struct pollfd *fds, int i);
+
 std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations);
 std::string join(const std::vector<std::string>& vec, const std::string& delimiter);
 
@@ -55,8 +78,11 @@ bool socket(const ServerConfig& config)
     int socketfd;
     sockaddr_in sockaddr;
     std::vector<pollfd> fds;
+    g_fds = &fds;
 
-    // Création socket
+    // Set up signal handler
+    signal(SIGINT, signal_handler);
+
     socketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd == -1)
     {
@@ -96,23 +122,39 @@ bool socket(const ServerConfig& config)
      << "███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    ██████╔╝█████╗  ███████║██║  ██║ ╚████╔╝ \n"
      << "╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗    ██╔══██╗██╔══╝  ██╔══██║██║  ██║  ╚██╔╝  \n"
      << "███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║    ██║  ██║███████╗██║  ██║██████╔╝   ██║   \n"
-     << "╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝    ╚═╝   \n"
+     << "╚══════╝╚══════╝╚═╝  ╚═╝ ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝    ╚═╝   \n"
      << "\033[0m" "\n" << std::endl;
     
     pollfd server_fd = {socketfd, POLLIN, 0};
-    fds.push_back(server_fd);   
+    fds.push_back(server_fd);
 
-    while (true)
+    // Add stdin to poll for CTRL+D
+    pollfd stdin_fd = {STDIN_FILENO, POLLIN, 0};
+    fds.push_back(stdin_fd);
+
+    while (g_running)
     {
-        if (poll(fds.data(), fds.size(), -1) < 0) 
+        if (poll(fds.data(), fds.size(), 1000) < 0) 
         {
+            if (errno == EINTR) {
+                continue;  // Interrupted by signal, continue if still running
+            }
             std::cerr << "Poll failed." << std::endl;
             break;
         }   
 
         for (size_t i = 0; i < fds.size(); i++)
         {
-            if (fds[i].fd == socketfd && (fds[i].revents & POLLIN))
+            if (fds[i].fd == STDIN_FILENO && (fds[i].revents & POLLIN))
+            {
+                char buf[1];
+                if (read(STDIN_FILENO, buf, 1) <= 0) {
+                    std::cerr << "Received EOF (CTRL+D). Cleaning up and exiting..." << std::endl;
+                    g_running = 0;
+                    break;
+                }
+            }
+            else if (fds[i].fd == socketfd && (fds[i].revents & POLLIN))
             {
                 socklen_t addrlen = sizeof(sockaddr);
                 int client_fd = accept(socketfd, (struct sockaddr*)&sockaddr, &addrlen);
@@ -130,9 +172,8 @@ bool socket(const ServerConfig& config)
             }
         }
     }
-    for (size_t i = 0; i < fds.size(); i++) {
-        close(fds[i].fd);
-    }
+
+    cleanup_resources();
     return true;
 }
 
