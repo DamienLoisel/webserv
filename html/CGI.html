@@ -46,7 +46,7 @@
             gap: 10px;
         }
 
-        button {
+        .button {
             padding: 15px 20px;
             background-color: #28a745; /* Green color for CGI */
             color: white;
@@ -56,9 +56,10 @@
             font-size: 16px;
             font-weight: bold;
             transition: background-color 0.3s;
+            text-decoration: none;
         }
 
-        button:hover {
+        .button:hover {
             background-color: #218838; /* Darker green on hover */
         }
 
@@ -77,36 +78,16 @@
 <body>
     <div class="container">
         <div class="unicorn">🦄</div>
-        <h1>Webserv - CGI Python Scripts</h1>
+        <h1>Webserv</h1>
+        <h1>CGI</h1>
+
 
         <div class="button-container">
-            <button onclick="executeCgiScript('/cgi-bin/non-executable.py')">Script 1 - Non executable</button>
-            <button onclick="executeCgiScript('/cgi-bin/unicorn-cgi.py')">Script 2 - Unicorn</button>
-            <button onclick="executeCgiScript('/cgi-bin/notfound.py')">Script 3 - Not found</button>
-            <button onclick="executeCgiScript('/cgi-bin/infinite-loop.py')">Script 4 - Infinite loop</button>
+            <a href="/cgi-bin/non-executable.py" class="button">Script 1 - Non executable</a>
+            <a href="/cgi-bin/unicorn-cgi.py" class="button">Script 2 - Unicorn</a>
+            <a href="/cgi-bin/notfound.py" class="button">Script 3 - Not found</a>
+            <a href="/cgi-bin/infinite-loop.py" class="button">Script 4 - Infinite loop</a>
         </div>
     </div>
-
-    <script>
-        async function executeCgiScript(scriptPath) {
-            const serverAddress = 'localhost';
-            const serverPort = '7000';
-            const url = `http://${serverAddress}:${serverPort}${scriptPath}`;
-
-            try {
-                const response = await fetch(url);
-
-                const responseText = await response.text();
-
-                const newTab = window.open();
-                newTab.document.write(`<pre>${responseText}</pre>`);
-                newTab.document.close();
-            } catch (error) {
-                const newTab = window.open();
-                newTab.document.write(`<pre>Error: ${error.message}</pre>`);
-                newTab.document.close();
-            }
-        }
-    </script>
 </body>
 </html>

@@ -44,9 +44,10 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            align-items: center; /* Centrer les boutons horizontalement */
         }
 
-        button {
+        .button {
             padding: 15px 20px;
             background-color: #4a90e2;
             color: white;
@@ -56,25 +57,29 @@
             font-size: 16px;
             font-weight: bold;
             transition: background-color 0.3s;
+            text-decoration: none;
+            display: block;
+            width: 100%; /* Utilise toute la largeur disponible */
+            text-align: center;
         }
 
-        button:hover {
+        .button:hover {
             background-color: #357abd;
         }
 
-        button.delete {
+        .button.delete {
             background-color: #e24a4a;
         }
 
-        button.delete:hover {
+        .button.delete:hover {
             background-color: #bd3535;
         }
 
-        button.cgi {
+        .button.cgi {
             background-color: #28a745;
         }
 
-        button.cgi:hover {
+        .button.cgi:hover {
             background-color: #218838;
         }
 
@@ -97,39 +102,11 @@
         <h1>Request Tester</h1>
 
         <div class="button-container">
-            <button onclick="openInNewTab('GET')">GET</button>
-            <button onclick="openInNewTab('POST')">POST</button>
-            <button class="delete" onclick="openInNewTab('DELETE')">DELETE</button>
-            <button class="cgi" onclick="openInNewTab('CGI')">CGI</button>
+            <a href="/html/GET.html" class="button">Test GET Request</a>
+            <a href="/html/POST.html" class="button">Test POST Request</a>
+            <a href="/html/DELETE.html" class="button delete">Test DELETE Request</a>
+            <a href="/html/CGI.html" class="button cgi">Test CGI Scripts</a>
         </div>
     </div>
-
-    <script>
-        function openInNewTab(method) {
-            const serverAddress = 'localhost';
-            const serverPort = '7000';
-            let url = `http://${serverAddress}:${serverPort}/`;
-
-            switch (method) {
-                case 'GET':
-                    url += 'html/GET.html';
-                    break;
-                case 'POST':
-                    url += 'html/POST.html';
-                    break;
-                case 'DELETE':
-                    url += 'html/DELETE.html';
-                    break;
-                case 'CGI':
-                    url += 'html/CGI.html';
-                    break;
-                default:
-                    console.error('Unrecognized method');
-                    return;
-            }
-
-            window.open(url, '_blank');
-        }
-    </script>
 </body>
 </html>

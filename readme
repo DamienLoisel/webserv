@@ -1,1 +1,6 @@
 nm - u
+
+Plusieurs serveurs.
+Construire l'url dans le c++/socket
+Verifier l'host en fonction du fichier .conf
+Si les serveurs ont des ports identiques ou une adress ip identique il faut génerer une erreur

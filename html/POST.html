@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webserv - Predefined POST Requests</title>
+    <title>Webserv - POST Requests</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -81,39 +81,30 @@
         <h1>POST Requests</h1>
 
         <div class="button-container">
-            <button onclick="sendPostRequest('/POST/submit-form', { name: 'Bernard', age: 11 })">POST 1 - Submit Form</button>
-            <button onclick="sendPostRequest('/POST/upload-data', { file: 'data.txt', content: 'Hello World' })">POST 2 - Upload Data</button>
-            <button onclick="sendPostRequest('/POST/create-user', { username: 'Germaine', email: 'germaine@aol.com' })">POST 3 - Create User</button>
-            <button onclick="sendPostRequest('/forbidden/update-settings', { theme: 'dark', notifications: true })">POST 4 - Error 403</button>
+            <form action="/POST/submit-form" method="post" class="form-group">
+                <input type="hidden" name="name" value="Bernard">
+                <input type="hidden" name="age" value="11">
+                <button type="submit">POST 1 - Submit Form</button>
+            </form>
+
+            <form action="/POST/upload-data" method="post" class="form-group">
+                <input type="hidden" name="file" value="data.txt">
+                <input type="hidden" name="content" value="Hello World">
+                <button type="submit">POST 2 - Upload Data</button>
+            </form>
+
+            <form action="/POST/create-user" method="post" class="form-group">
+                <input type="hidden" name="username" value="Germaine">
+                <input type="hidden" name="email" value="germaine@aol.com">
+                <button type="submit">POST 3 - Create User</button>
+            </form>
+
+            <form action="/forbidden/update-settings" method="post" class="form-group">
+                <input type="hidden" name="theme" value="dark">
+                <input type="hidden" name="notifications" value="true">
+                <button type="submit">POST 4 - Error 403</button>
+            </form>
         </div>
     </div>
-
-    <script>
-        async function sendPostRequest(endpoint, data) {
-            const serverAddress = 'localhost';
-            const serverPort = '7000';
-            const url = `http://${serverAddress}:${serverPort}${endpoint}`;
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data),
-                });
-
-                const responseText = await response.text();
-
-                const newTab = window.open();
-                newTab.document.write(`<pre>${responseText}</pre>`);
-                newTab.document.close();
-            } catch (error) {
-                const newTab = window.open();
-                newTab.document.write(`<pre>Error: ${error.message}</pre>`);
-                newTab.document.close();
-            }
-        }
-    </script>
 </body>
 </html>

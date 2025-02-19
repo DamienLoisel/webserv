@@ -81,34 +81,28 @@
         <h1>DELETE Requests</h1>
 
         <div class="button-container">
-            <button onclick="sendDeleteRequest('/DELETE/goat.txt')">DELETE 1 - Goat</button>
-            <button onclick="sendDeleteRequest('/DELETE/guez.txt')">DELETE 2 - Guez</button>
-            <button onclick="sendDeleteRequest('/src/main.cpp.txt')">DELETE 3 - src/main.cpp</button>
-            <button onclick="sendDeleteRequest('/Makefile')">DELETE 4 - Makefile</button>
+            <form action="/DELETE/goat.txt" method="post" class="form-group">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit">DELETE 1 - Goat</button>
+            </form>
+
+            <form action="/DELETE/guez.txt" method="post" class="form-group">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit">DELETE 2 - Guez</button>
+            </form>
+
+            <form action="/src/main.cpp.txt" method="post" class="form-group">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit">DELETE 3 - src/main.cpp</button>
+            </form>
+
+            <form action="/Makefile" method="post" class="form-group">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit">DELETE 4 - Makefile</button>
+            </form>
+
+            <a href="/" class="button">Back to Home</a>
         </div>
     </div>
-
-    <script>
-        async function sendDeleteRequest(endpoint) {
-            const serverAddress = 'localhost';
-            const serverPort = '7000';
-            const url = `http://${serverAddress}:${serverPort}${endpoint}`;
-
-            try {
-                const response = await fetch(url, {
-                    method: 'DELETE',
-                });
-
-                const responseText = await response.text();
-                const newTab = window.open();
-                newTab.document.write(`<pre>${responseText}</pre>`);
-                newTab.document.close();
-            } catch (error) {
-                const newTab = window.open();
-                newTab.document.write(`<pre>Error: ${error.message}</pre>`);
-                newTab.document.close();
-            }
-        }
-    </script>
 </body>
 </html>

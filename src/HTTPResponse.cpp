@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPResponse.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 15:40:57 by dmathis           #+#    #+#             */
-/*   Updated: 2025/02/19 02:25:18 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/19 12:34:03 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -238,22 +238,24 @@ bool HTTPResponse::isMethodAllowed(const std::string& uri, const std::string& me
     if (!config) return false;
 
     // Trouve la location correspondante
-    LocationConfig* matching_location = NULL;
     std::string best_match;
+    const LocationConfig* matching_location = NULL;
     
+    // Recherche la meilleure correspondance de location
     for (std::map<std::string, LocationConfig>::const_iterator it = config->locations.begin(); 
          it != config->locations.end(); ++it) {
         if (uri.find(it->first) == 0 && it->first.length() > best_match.length()) {
             best_match = it->first;
-            matching_location = const_cast<LocationConfig*>(&it->second);
+            matching_location = &it->second;
         }
     }
 
+    // Si aucune location n'est trouvée, on utilise la configuration par défaut
     if (!matching_location) {
-        return true;  // Si pas de location spécifique, on autorise par défaut
+        matching_location = &config->locations.at("/");
     }
 
-    // Si allowed_methods est vide ou "NONE", aucune méthode n'est autorisée
+    // Si allowed_methods est vide ou contient "NONE", aucune méthode n'est autorisée
     if (matching_location->allowed_methods.empty() || 
         (matching_location->allowed_methods.size() == 1 && matching_location->allowed_methods[0] == "NONE")) {
         return false;
