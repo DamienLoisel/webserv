@@ -91,12 +91,7 @@ void display(const char *file)
 
 int main(int argc, char **argv)
 {
-	ConfigParser	parser;
-	char			*default_conf = strdup("conf/webserv.conf");
-	
-    if (!parse(argc, argv))
-        return (1);
-    display(argv[1]);
+    const char *config_file = (argc > 1) ? argv[1] : "conf/webserv.conf";
 
     struct sigaction sa;
     sa.sa_handler = signal_handler;
@@ -109,9 +104,12 @@ int main(int argc, char **argv)
     }
 
     ConfigParser parser;
-    if (!parser.parse(argv[1])) {
+    if (!parser.parse(config_file)) {
+        std::cerr << "Failed to parse configuration file." << std::endl;
         return 1;
     }
+
+    display(config_file);
 
     server_configs = parser.getServers();
     if (server_configs.empty()) {
@@ -170,26 +168,4 @@ int main(int argc, char **argv)
 
     cleanup_resources();
     return 0;
-		return (1);
-	if (argv[1])
-	{
-    	display(argv[1]);
-		if (parser.parse(argv[1])) 
-		{
-			static const ServerConfig config = parser.getServerConfig();
-			HTTPResponse::setConfig(&config);
-			socket(config);
-		}
-	}
-	else
-	{
-		display(default_conf);
-		if (parser.parse(default_conf))
-		{
-			static const ServerConfig config = parser.getServerConfig();
-			HTTPResponse::setConfig(&config);
-			socket(config);
-		}
-	}
-    return (0);
 }

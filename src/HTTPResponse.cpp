@@ -340,9 +340,17 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 return;
             }
 
-            // Si c'est un répertoire
-            if (S_ISDIR(path_stat.st_mode)) {
-                std::string index_path = full_path + "/index.html";
+            // Si c'est un répertoire ou si l'URI se termine par /
+            if (S_ISDIR(path_stat.st_mode) || uri == "/" || uri[uri.length() - 1] == '/') {
+                std::string index_path;
+                if (!loc_config.index.empty()) {
+                    index_path = full_path + (uri == "/" ? "" : "/") + loc_config.index;
+                } else {
+                    index_path = full_path + (uri == "/" ? "" : "/") + "index.html";
+                }
+                
+                std::cout << "[DEBUG] Trying index file: " << index_path << std::endl;
+                
                 if (stat(index_path.c_str(), &path_stat) == 0) {
                     serveFile(index_path, client_fd);
                 } else if (loc_config.autoindex) {
