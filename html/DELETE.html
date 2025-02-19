@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webserv - Predefined DELETE Requests</title>
+    <title>Webserv - DELETE Requests</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -81,26 +81,31 @@
         <h1>DELETE Requests</h1>
 
         <div class="button-container">
-            <form action="/DELETE/goat.txt" method="post" class="form-group">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit">DELETE 1 - Goat</button>
-            </form>
-
-            <form action="/DELETE/guez.txt" method="post" class="form-group">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit">DELETE 2 - Guez</button>
-            </form>
-
-            <form action="/src/main.cpp" method="post" class="form-group">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit">DELETE 3 - src/main.cpp</button>
-            </form>
-
-            <form action="/Makefile" method="post" class="form-group">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit">DELETE 4 - Makefile</button>
-            </form>
+            <button onclick="sendDeleteRequest('/DELETE/goat.txt')">DELETE 1 - Goat</button>
+            <button onclick="sendDeleteRequest('/DELETE/guez')">DELETE 2 - Guez</button>
+            <button onclick="sendDeleteRequest('/src/main.cpp')">DELETE 3 - src/main.cpp</button>
+            <button onclick="sendDeleteRequest('/Makefile')">DELETE 4 - Makefile</button>
         </div>
     </div>
+
+    <script>
+        function sendDeleteRequest(url) {
+            fetch(url, {
+                method: 'DELETE',
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('DELETE request successful');
+                } else {
+                    const errorCode = response.status;
+                    window.location.href = `/error/${errorCode}.html`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.location.href = `/error/500.html`;
+            });
+        }
+    </script>
 </body>
 </html>
