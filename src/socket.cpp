@@ -1,96 +1,59 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   socket.cpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/01/26 10:35:54 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 03:13:01 by dmathis          ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "webserv.hpp"
+#include "ConfigParser.hpp"
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
-#include "ConfigParser.hpp"
-#include <poll.h>
-#include <vector>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <errno.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include <iostream>
-#include <algorithm>
-#include <signal.h>
 
+// Définition des variables globales
 std::vector<pollfd>* g_fds = NULL;
 volatile sig_atomic_t g_running = 1;
 
-void cleanup_resources() {
-    if (g_fds != NULL) {
-        for (size_t i = 0; i < g_fds->size(); i++) {
-            if ((*g_fds)[i].fd >= 0) {
-                close((*g_fds)[i].fd);
-            }
-        }
-        g_fds = NULL;
-    }
-}
-
 void signal_handler(int signum) {
-    if (signum == SIGINT) {
-        std::cerr << "\nReceived SIGINT. Cleaning up and exiting..." << std::endl;
+    if (signum == SIGINT || signum == SIGTERM) {
+        std::cerr << "\nReceived signal " << signum << ". Cleaning up and exiting..." << std::endl;
         g_running = 0;
     }
 }
 
-void handle_client(struct pollfd *fds, int i);
-
-std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations);
-std::string join(const std::vector<std::string>& vec, const std::string& delimiter);
-
-std::string findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations)
-{
-    for (std::map<std::string, LocationConfig>::const_iterator it = locations.begin(); it != locations.end(); ++it)
-    {
-        if (uri.find(it->first) == 0)
-        {
-            return it->first;
+void cleanup_resources() {
+    if (g_fds) {
+        // Fermer tous les sockets sauf stdin
+        for (std::vector<pollfd>::iterator it = g_fds->begin(); it != g_fds->end(); ++it) {
+            if (it->fd >= 0 && it->fd != STDIN_FILENO) {
+                close(it->fd);
+            }
         }
+        g_fds->clear();
+        g_fds = NULL;  // On ne delete pas car c'est un vecteur statique
     }
-    return "";
-}
-
-std::string join(const std::vector<std::string>& vec, const std::string& delimiter)
-{
-    std::string result;
-    for (size_t i = 0; i < vec.size(); i++)
-    {
-        result += vec[i];
-        if (i < vec.size() - 1)
-        {
-            result += delimiter;
-        }
-    }
-    return result;
 }
 
 bool socket(const ServerConfig& config)
 {
     int socketfd;
-    sockaddr_in sockaddr;
-    std::vector<pollfd> fds;
-    g_fds = &fds;
+    struct sockaddr_in sockaddr;
 
-    // Set up signal handler
-    signal(SIGINT, signal_handler);
-
-    socketfd = socket(AF_INET, SOCK_STREAM, 0);
+    socketfd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd == -1)
     {
         std::cerr << "Failed to create socket." << std::endl;
-        return (false);
+        return false;
     }   
 
-    fcntl(socketfd, F_SETFL, O_NONBLOCK);
+    int flags = fcntl(socketfd, F_GETFL, 0);
+    if (flags == -1 || fcntl(socketfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        std::cerr << "Failed to set non-blocking mode." << std::endl;
+        close(socketfd);
+        return false;
+    }
     
     int opt = 1;
     if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
@@ -101,181 +64,109 @@ bool socket(const ServerConfig& config)
     }   
 
     sockaddr.sin_family = AF_INET;
-    sockaddr.sin_addr.s_addr = INADDR_ANY;
     sockaddr.sin_port = htons(config.listen_port);
+    if (inet_pton(AF_INET, config.host.c_str(), &sockaddr.sin_addr) <= 0) {
+        std::cerr << "Invalid address: " << config.host << std::endl;
+        close(socketfd);
+        return false;
+    }
     
     if (bind(socketfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
     {
-        std::cerr << "Failed to bind to port " << config.listen_port << "." << std::endl;
-        return (false);
+        std::cerr << "Failed to bind to " << config.host << ":" << config.listen_port << std::endl;
+        close(socketfd);
+        return false;
     }
     
-    if (listen(socketfd, 10) < 0)
+    if (listen(socketfd, SOMAXCONN) < 0)
     {
         std::cerr << "Failed to listen on socket." << std::endl;
-        return (false);
+        close(socketfd);
+        return false;
     }   
 
-    std::cerr <<  "\033[1;32m" 
-     << "\n""███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     ██████╗ ███████╗ █████╗ ██████╗ ██╗   ██╗\n"
-     << "██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗    ██╔══██╗██╔════╝██╔══██╗██╔══██╗╚██╗ ██╔╝\n"
-     << "███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    ██████╔╝█████╗  ███████║██║  ██║ ╚████╔╝ \n"
-     << "╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗    ██╔══██╗██╔══╝  ██╔══██║██║  ██║  ╚██╔╝  \n"
-     << "███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║    ██║  ██║███████╗██║  ██║██████╔╝   ██║   \n"
-     << "╚══════╝╚══════╝╚═╝  ╚═╝ ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝    ╚═╝   \n"
-     << "\033[0m" "\n" << std::endl;
+    std::cerr << "\033[32mServer listening on " << config.host << ":" << config.listen_port << "\033[0m" << std::endl;
     
     pollfd server_fd = {socketfd, POLLIN, 0};
-    fds.push_back(server_fd);
-
-    // Add stdin to poll for CTRL+D
-    pollfd stdin_fd = {STDIN_FILENO, POLLIN, 0};
-    fds.push_back(stdin_fd);
-
-    while (g_running)
-    {
-        if (poll(fds.data(), fds.size(), 1000) < 0) 
-        {
-            if (errno == EINTR) {
-                continue;  // Interrupted by signal, continue if still running
-            }
-            std::cerr << "Poll failed." << std::endl;
-            break;
-        }   
-
-        for (size_t i = 0; i < fds.size(); i++)
-        {
-            if (fds[i].fd == STDIN_FILENO && (fds[i].revents & POLLIN))
-            {
-                char buf[1];
-                if (read(STDIN_FILENO, buf, 1) <= 0) {
-                    std::cerr << "Received EOF (CTRL+D). Cleaning up and exiting..." << std::endl;
-                    g_running = 0;
-                    break;
-                }
-            }
-            else if (fds[i].fd == socketfd && (fds[i].revents & POLLIN))
-            {
-                socklen_t addrlen = sizeof(sockaddr);
-                int client_fd = accept(socketfd, (struct sockaddr*)&sockaddr, &addrlen);
-                if (client_fd >= 0)
-                {
-                    fcntl(client_fd, F_SETFL, O_NONBLOCK);
-                    pollfd client = {client_fd, POLLIN, 0};
-                    fds.push_back(client);
-                    std::cerr << "New client connected." << std::endl;
-                }
-            }
-            else if (fds[i].revents & POLLIN)
-            {
-                handle_client(&fds[0], i);
-            }
-        }
+    if (g_fds) {
+        g_fds->push_back(server_fd);
     }
 
-    cleanup_resources();
     return true;
 }
 
-void handle_client(struct pollfd *fds, int i) {
-    char buffer[1024];
-    std::string request;
-    ssize_t bytes_received;
-    const size_t MAX_REQUEST_SIZE = 8192;
-    struct timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
+void handle_client(struct pollfd *fds, int i)
+{
+    // Si c'est un socket serveur, accepter la nouvelle connexion
+    for (size_t j = 0; j < g_fds->size(); ++j) {
+        if (g_fds->at(j).fd == fds[i].fd && j < 2) { // Les 2 premiers fds sont les serveurs
+            struct sockaddr_in client_addr;
+            socklen_t addr_len = sizeof(client_addr);
+            int client_fd = accept(fds[i].fd, (struct sockaddr*)&client_addr, &addr_len);
+            
+            if (client_fd < 0) {
+                std::cerr << "Failed to accept client connection: " << strerror(errno) << std::endl;
+                return;
+            }
 
-    if (setsockopt(fds[i].fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout)) < 0) {
-        std::cerr << "Error setting socket timeout" << std::endl;
-        close(fds[i].fd);
-        fds[i].fd = -1;
-        return;
-    }
-
-    std::cerr << "\n[DEBUG] Starting to read request..." << std::endl;
-
-    while ((bytes_received = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0)) > 0) {
-        std::cerr << "[DEBUG] Received " << bytes_received << " bytes" << std::endl;
-        
-        if (request.length() + bytes_received > MAX_REQUEST_SIZE) {
-            std::string error_msg = "HTTP/1.1 413 Request Entity Too Large\r\nContent-Length: 0\r\n\r\n";
-            send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
-            close(fds[i].fd);
-            fds[i].fd = -1;
+            // Mettre le client en mode non-bloquant
+            int flags = fcntl(client_fd, F_GETFL, 0);
+            if (flags >= 0) {
+                fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
+                pollfd client = {client_fd, POLLIN, 0};
+                g_fds->push_back(client);
+                std::cerr << "New client connected on server " << j << std::endl;
+            } else {
+                close(client_fd);
+            }
             return;
         }
-
-        buffer[bytes_received] = '\0';
-        request += buffer;
-
-        std::cerr << "[DEBUG] Current request:\n" << request << "\n[END REQUEST]" << std::endl;
-
-        size_t header_end = request.find("\r\n\r\n");
-        if (header_end != std::string::npos) {
-            std::cerr << "[DEBUG] Found end of headers at position " << header_end << std::endl;
-            
-            size_t cl_pos = request.find("Content-Length: ");
-            if (cl_pos != std::string::npos) {
-                size_t cl_end = request.find("\r\n", cl_pos);
-                if (cl_end != std::string::npos) {
-                    size_t content_length = std::atoi(request.substr(cl_pos + 16, cl_end - (cl_pos + 16)).c_str());
-                    std::cerr << "[DEBUG] Content-Length: " << content_length << std::endl;
-                    
-                    size_t current_body_length = request.length() - (header_end + 4);
-                    std::cerr << "[DEBUG] Current body length: " << current_body_length << std::endl;
-                    
-                    if (current_body_length >= content_length) {
-                        std::cerr << "[DEBUG] Got complete body" << std::endl;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                std::cerr << "[DEBUG] No Content-Length found" << std::endl;
-                break;
-            }
-        }
     }
 
-    if (bytes_received < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-            std::cerr << "Request timeout" << std::endl;
-            std::string error_msg = "HTTP/1.1 408 Request Timeout\r\nContent-Length: 0\r\n\r\n";
-            send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
+    // Sinon, c'est un client existant, traiter sa requête
+    char buffer[4096] = {0};  // Initialiser à zéro
+    ssize_t bytes_read = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
+
+    if (bytes_read <= 0) {
+        if (bytes_read == 0) {
+            std::cerr << "Client disconnected." << std::endl;
+        } else {
+            std::cerr << "Error reading from client: " << strerror(errno) << std::endl;
         }
-        else
-            std::cerr << "Error receiving data: " << strerror(errno) << std::endl;
         close(fds[i].fd);
         fds[i].fd = -1;
         return;
     }
 
-    if (request.empty())
-    {
-        std::cerr << "Client disconnected" << std::endl;
-        close(fds[i].fd);
-        fds[i].fd = -1;
-        return;
-    }
-
+    buffer[bytes_read] = '\0';
+    
     try {
-        std::cerr << "[DEBUG] Creating HTTPRequest..." << std::endl;
-        HTTPRequest req(request.c_str());
-        std::cerr << "[DEBUG] Created HTTPRequest" << std::endl;
-        
+        HTTPRequest req(buffer);
         std::cerr << "[DEBUG] Method: " << req.getMethod() << std::endl;
         std::cerr << "[DEBUG] URI: " << req.getURI() << std::endl;
         std::cerr << "[DEBUG] Body: " << req.getBody() << std::endl;
-        
+
+        // Trouver le bon serveur en fonction du Host header
+        std::string host = req.getHeader("Host");
+        if (!host.empty()) {
+            size_t colon_pos = host.find(':');
+            if (colon_pos != std::string::npos) {
+                host = host.substr(0, colon_pos);
+            }
+
+            extern std::vector<ServerConfig> server_configs;  // Utiliser les configs globales
+            for (size_t j = 0; j < server_configs.size(); ++j) {
+                if (server_configs[j].host == host) {
+                    HTTPResponse::setConfig(&server_configs[j]);
+                    break;
+                }
+            }
+        }
+
         HTTPResponse resp;
         resp.handle_request(req, fds[i].fd);
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "[ERROR] Exception: " << e.what() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error handling request: " << e.what() << std::endl;
         std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nInternal Server Error\n";
         send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
     }

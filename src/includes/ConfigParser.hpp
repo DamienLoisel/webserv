@@ -15,19 +15,22 @@
 
 # include <string>
 # include <sstream>
+# include <vector>
 # include "ConfigTypes.hpp"
 
 class ConfigParser 
 {
     public:
         bool parse(const std::string& filename);
-        const ServerConfig& getServerConfig() const;
+        const std::vector<ServerConfig>& getServers() const { return servers; }
+        static const size_t MAX_SERVERS = 10;
     
     private:
-        ServerConfig server;
+        std::vector<ServerConfig> servers;
         void trim(std::string& str);
         std::vector<std::string> split(const std::string& s, char delimiter);
         void parseLocationBlock(std::istringstream& block_stream, LocationConfig& loc);
+        bool checkDuplicateServers() const;
 };
 
 #endif
