@@ -155,7 +155,8 @@ bool ConfigParser::parse(const std::string& filename)
                     line_stream >> current_server.server_name;
                 }
                 else if (key == "error_page") {
-                    line_stream >> current_server.error_page;
+                    int error_code;
+                    line_stream >> error_code >> current_server.error_page;
                 }
                 else if (key == "client_max_body_size") {
                     line_stream >> current_server.client_max_body_size;

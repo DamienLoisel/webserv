@@ -16,7 +16,8 @@
 #include <sys/stat.h>
 #include <ctime>
 
-const ServerConfig* HTTPResponse::config = NULL;
+// Définition de la variable statique
+const ServerConfig* HTTPResponse::_config = NULL;
 
 HTTPResponse::HTTPResponse(int status, std::string content_type, std::string body) {
     std::stringstream ss;
@@ -32,7 +33,7 @@ std::string HTTPResponse::toString() {
 }
 
 bool HTTPResponse::isCGI(const std::string& uri) {
-    if (!config) return false;
+    if (!_config) return false;
 
     if (uri.find("/cgi-bin/") != 0) {
         return false;
@@ -177,7 +178,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
             response += "\r\n";
             response += output;
 
-            send(client_fd, response.c_str(), response.length(), 0);
+            sendResponse(client_fd, response);
         }
         else {
             std::cout << "[ERROR] CGI script failed with status: " << WEXITSTATUS(status) << std::endl;
@@ -210,7 +211,13 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
             ss << error_file.rdbuf();
             error_file.close();
             HTTPResponse resp(error_code, "text/html", ss.str());
-            send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+            try {
+                std::string response = resp.toString();
+                sendResponse(client_fd, response);
+            } catch (const std::exception& e) {
+                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+                close(client_fd);
+            }
             return;
         }
     }
@@ -231,19 +238,44 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
     std::stringstream error_msg;
     error_msg << error_code << " " << error_message;
     HTTPResponse resp(error_code, "text/plain", error_msg.str());
-    send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+    try {
+        std::string response = resp.toString();
+        sendResponse(client_fd, response);
+    } catch (const std::exception& e) {
+        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+        close(client_fd);
+    }
+}
+
+void HTTPResponse::sendResponse(int client_fd, const std::string& response_data) {
+    size_t total_sent = 0;
+    size_t len = response_data.length();
+    
+    while (total_sent < len) {
+        ssize_t sent = send(client_fd, response_data.c_str() + total_sent, len - total_sent, 0);
+        if (sent < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Socket buffer is full, wait for POLLOUT event
+                return;
+            }
+            // Erreur fatale
+            close(client_fd);
+            return;
+        }
+        total_sent += sent;
+    }
 }
 
 bool HTTPResponse::isMethodAllowed(const std::string& uri, const std::string& method) {
-    if (!config) return false;
+    if (!_config) return false;
 
     // Trouve la location correspondante
     std::string best_match;
     const LocationConfig* matching_location = NULL;
     
     // Recherche la meilleure correspondance de location
-    for (std::map<std::string, LocationConfig>::const_iterator it = config->locations.begin(); 
-         it != config->locations.end(); ++it) {
+    for (std::map<std::string, LocationConfig>::const_iterator it = _config->locations.begin(); 
+         it != _config->locations.end(); ++it) {
         if (uri.find(it->first) == 0 && it->first.length() > best_match.length()) {
             best_match = it->first;
             matching_location = &it->second;
@@ -252,7 +284,7 @@ bool HTTPResponse::isMethodAllowed(const std::string& uri, const std::string& me
 
     // Si aucune location n'est trouvée, on utilise la configuration par défaut
     if (!matching_location) {
-        matching_location = &config->locations.at("/");
+        matching_location = &_config->locations.at("/");
     }
 
     // Si allowed_methods est vide ou contient "NONE", aucune méthode n'est autorisée
@@ -288,8 +320,8 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         std::string hostname = (colon_pos != std::string::npos) ? host.substr(0, colon_pos) : host;
 
         // Vérifier que le hostname correspond à la configuration
-        if (hostname != config->host) {
-            std::cout << "[DEBUG] Host mismatch. Got: " << hostname << ", Expected: " << config->host << std::endl;
+        if (hostname != _config->host) {
+            std::cout << "[DEBUG] Host mismatch. Got: " << hostname << ", Expected: " << _config->host << std::endl;
             sendErrorPage(client_fd, 400, req);
             return;
         }
@@ -305,8 +337,8 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         }
 
         // Trouver la location correspondante
-        std::string location = findLocationForURI(uri, config->locations);
-        const LocationConfig& loc_config = config->locations.at(location);
+        std::string location = findLocationForURI(uri, _config->locations);
+        const LocationConfig& loc_config = _config->locations.at(location);
 
         std::cout << "[DEBUG] Location found: " << location << std::endl;
         std::cout << "[DEBUG] Root: " << loc_config.root << std::endl;
@@ -420,7 +452,13 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
 
             std::cout << "[DEBUG] File written successfully" << std::endl;
             HTTPResponse resp(201, "text/plain", "Resource created successfully");
-            send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+            try {
+                std::string response = resp.toString();
+                sendResponse(client_fd, response);
+            } catch (const std::exception& e) {
+                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+                close(client_fd);
+            }
         }
         else if ((method == "DELETE")) {
             if (stat(full_path.c_str(), &path_stat) != 0) {
@@ -439,7 +477,13 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
             }
 
             HTTPResponse resp(200, "text/plain", "Resource deleted successfully");
-            send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+            try {
+                std::string response = resp.toString();
+                sendResponse(client_fd, response);
+            } catch (const std::exception& e) {
+                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+                close(client_fd);
+            }
         }
         else {
             sendErrorPage(client_fd, 501, req);
@@ -455,7 +499,13 @@ void HTTPResponse::serveFile(const std::string& path, int client_fd) {
     std::ifstream file(path.c_str(), std::ios::binary);
     if (!file.is_open()) {
         HTTPResponse resp(500, "text/plain", "Internal server error");
-        send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+        try {
+            std::string response = resp.toString();
+            sendResponse(client_fd, response);
+        } catch (const std::exception& e) {
+            // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+            close(client_fd);
+        }
         return;
     }
 
@@ -474,14 +524,26 @@ void HTTPResponse::serveFile(const std::string& path, int client_fd) {
     else if (ext == "gif") content_type = "image/gif";
 
     HTTPResponse resp(200, content_type, ss.str());
-    send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+    try {
+        std::string response = resp.toString();
+        sendResponse(client_fd, response);
+    } catch (const std::exception& e) {
+        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+        close(client_fd);
+    }
 }
 
 void HTTPResponse::generateDirectoryListing(const std::string& path, int client_fd) {
     DIR* dir = opendir(path.c_str());
     if (!dir) {
         HTTPResponse resp(500, "text/plain", "Internal server error");
-        send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+        try {
+            std::string response = resp.toString();
+            sendResponse(client_fd, response);
+        } catch (const std::exception& e) {
+            // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+            close(client_fd);
+        }
         return;
     }
 
@@ -491,7 +553,7 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
     
     // Trouver la location qui correspond au chemin
     std::map<std::string, LocationConfig>::const_iterator it;
-    for (it = config->locations.begin(); it != config->locations.end(); ++it) {
+    for (it = _config->locations.begin(); it != _config->locations.end(); ++it) {
         const std::string& loc_path = it->first;
         const LocationConfig& loc = it->second;
         
@@ -630,7 +692,13 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
     html << "</ul></div></body></html>";
     
     HTTPResponse resp(200, "text/html", html.str());
-    send(client_fd, resp.toString().c_str(), resp.toString().length(), 0);
+    try {
+        std::string response = resp.toString();
+        sendResponse(client_fd, response);
+    } catch (const std::exception& e) {
+        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+        close(client_fd);
+    }
     
     closedir(dir);  // Fermer le répertoire dans tous les cas
 }
