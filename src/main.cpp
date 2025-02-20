@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 22:38:51 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/20 10:47:23 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -91,8 +91,10 @@ void display(const char *file)
 
 int main(int argc, char **argv)
 {
-    const char *config_file = (argc > 1) ? argv[1] : "conf/webserv.conf";
+    if (!parse(argc, argv))
+        return (1);
 
+    const char *config_file = argv[1];
     struct sigaction sa;
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);

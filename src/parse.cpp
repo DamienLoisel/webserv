@@ -6,7 +6,7 @@
 /*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:26:02 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 22:37:47 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/20 10:47:29 by dloisel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,7 +29,7 @@ bool	parse(int argc, char **argv)
 	{
 		std::cout << "The program must be called like this :" << std::endl;
 		std::cout << "./webserv [configuration file]" << std::endl;
-		std::cout << "webserv default conf file called : conf/webserver.conf" << std::endl << std::endl;
+		return (false);
 	}
 	else if (!endsWithConf(argv[1]))
 	{
