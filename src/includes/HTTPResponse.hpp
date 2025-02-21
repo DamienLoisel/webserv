@@ -20,7 +20,6 @@ class HTTPResponse {
 private:
     std::string response;
     static const ServerConfig* _config;
-    void sendErrorPage(int client_fd, int status_code, HTTPRequest& req);
     void sendResponse(int client_fd, const std::string& response_data);
     bool isMethodAllowed(const std::string& uri, const std::string& method);
     bool isCGI(const std::string& uri);
@@ -34,6 +33,7 @@ public:
     HTTPResponse(int status, std::string content_type, std::string body);
     std::string toString();
     void handle_request(HTTPRequest& req, int client_fd);
+    void sendErrorPage(int client_fd, int status_code, HTTPRequest& req);
     static void setConfig(const ServerConfig* cfg) { _config = const_cast<const ServerConfig*>(cfg); }
 };
 

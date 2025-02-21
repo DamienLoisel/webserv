@@ -13,8 +13,9 @@
 #include "HTTPRequest.hpp"
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 
-HTTPRequest::HTTPRequest(const char* raw_request) {
+HTTPRequest::HTTPRequest(const char* raw_request, const ServerConfig* config) : server_config(config) {
     std::cout << "[DEBUG] Raw request:" << std::endl << raw_request << std::endl;
     
     std::string request(raw_request);
@@ -36,9 +37,21 @@ HTTPRequest::HTTPRequest(const char* raw_request) {
     parseRequestLine(request_line);
     
     parseHeaders(headers_stream);
+
+    // Vérifier la taille du corps de la requête avant de le lire
+    std::string content_length_str = getHeader("Content-Length");
+    if (!content_length_str.empty()) {
+        size_t content_length = std::atol(content_length_str.c_str());
+        if (server_config && content_length > server_config->client_max_body_size) {
+            throw std::runtime_error("413 Payload Too Large");
+        }
+    }
     
     if (headers_end < request.length()) {
         body = request.substr(headers_end + 4);
+        if (server_config && body.length() > server_config->client_max_body_size) {
+            throw std::runtime_error("413 Payload Too Large");
+        }
         std::cout << "[DEBUG] Read body (length=" << body.length() << "): '" << body << "'" << std::endl;
     } else {
         std::cout << "[DEBUG] No body found" << std::endl;

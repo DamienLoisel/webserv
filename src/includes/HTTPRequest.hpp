@@ -14,10 +14,12 @@
 # define HTTPREQUEST_HPP
 
 # include "webserv.hpp"
+# include "ConfigTypes.hpp"
 
 class HTTPRequest {
 private:
 
+    const ServerConfig* server_config;
     std::string method;
     std::string uri;
     std::string version;
@@ -32,7 +34,7 @@ private:
 
 public:
 
-    HTTPRequest(const char* raw_request);
+    HTTPRequest(const char* raw_request, const ServerConfig* config = NULL);
 
     std::string getMethod() const;
     std::string getURI() const;

@@ -138,60 +138,85 @@ void handle_client(struct pollfd *fds, int i)
         buffer[bytes_read] = '\0';
         
         try {
-            HTTPRequest req(buffer);
-            std::cerr << "[DEBUG] Method: " << req.getMethod() << std::endl;
-            std::cerr << "[DEBUG] URI: " << req.getURI() << std::endl;
-            std::cerr << "[DEBUG] Body: " << req.getBody() << std::endl;
-
             // Trouver le bon serveur en fonction du Host header
-            std::string host = req.getHeader("Host");
-            if (!host.empty()) {
-                size_t colon_pos = host.find(':');
-                if (colon_pos != std::string::npos) {
-                    host = host.substr(0, colon_pos);
-                }
-
-                extern std::vector<ServerConfig> server_configs;  // Utiliser les configs globales
-                for (size_t j = 0; j < server_configs.size(); ++j) {
-                    if (server_configs[j].host == host) {
-                        HTTPResponse::setConfig(&server_configs[j]);
-                        break;
+            std::string host;
+            size_t host_end = std::string(buffer).find("\r\n");
+            if (host_end != std::string::npos) {
+                std::string first_line = std::string(buffer).substr(0, host_end);
+                size_t host_start = first_line.find("Host: ");
+                if (host_start != std::string::npos) {
+                    host = first_line.substr(host_start + 6);
+                    size_t colon_pos = host.find(':');
+                    if (colon_pos != std::string::npos) {
+                        host = host.substr(0, colon_pos);
                     }
                 }
             }
 
+            extern std::vector<ServerConfig> server_configs;
+            const ServerConfig* config = NULL;
+            for (size_t j = 0; j < server_configs.size(); ++j) {
+                if (server_configs[j].host == host) {
+                    config = &server_configs[j];
+                    HTTPResponse::setConfig(config);
+                    break;
+                }
+            }
+
+            // Si aucun hôte correspondant n'est trouvé, utiliser le premier serveur
+            if (!config && !server_configs.empty()) {
+                config = &server_configs[0];
+                HTTPResponse::setConfig(config);
+            }
+
+            HTTPRequest req(buffer, config);
+            std::cerr << "[DEBUG] Method: " << req.getMethod() << std::endl;
+            std::cerr << "[DEBUG] URI: " << req.getURI() << std::endl;
+            std::cerr << "[DEBUG] Body: " << req.getBody() << std::endl;
+
             HTTPResponse resp;
             resp.handle_request(req, fds[i].fd);
         } catch (const std::exception& e) {
-            std::string error_content = "No default error page";
-            extern std::vector<ServerConfig> server_configs;
-            
-            std::cerr << "Debug - server_configs empty? " << server_configs.empty() << std::endl;
-            if (!server_configs.empty()) {
-                // Convertir le chemin absolu en chemin relatif
-                std::string error_path = server_configs[0].error_page;
-                if (error_path[0] == '/') {
-                    error_path = "." + error_path;
-                }
-                std::cerr << "Debug - error_page path: " << error_path << std::endl;
-                std::ifstream file(error_path.c_str());
-                std::cerr << "Debug - file open? " << file.is_open() << std::endl;
-                if (file.is_open()) {
-                    std::stringstream buffer;
-                    buffer << file.rdbuf();
-                    error_content = buffer.str();
-                    file.close();
-                    std::cerr << "Debug - content read: " << error_content.substr(0, 50) << "..." << std::endl;
-                } else {
-                    std::cerr << "Debug - Failed to open file: " << strerror(errno) << std::endl;
-                }
+            std::string error_msg = e.what();
+            int status_code = 500; // Code par défaut
+
+            // Extraire le code d'erreur du message
+            if (error_msg.find("413") == 0) {
+                status_code = 413;
             }
+
+            extern std::vector<ServerConfig> server_configs;
+            if (!server_configs.empty()) {
+                HTTPResponse::setConfig(&server_configs[0]);
+            }
+
+            // Créer une réponse d'erreur directement
+            std::string error_content;
+            std::stringstream error_path_ss;
+            error_path_ss << "./error/" << status_code << ".html";
+            std::string error_path = error_path_ss.str();
+            std::ifstream error_file(error_path.c_str());
             
+            if (error_file.is_open()) {
+                std::stringstream buffer;
+                buffer << error_file.rdbuf();
+                error_content = buffer.str();
+                error_file.close();
+            } else {
+                error_content = error_msg;
+            }
+
             std::stringstream ss;
             ss << error_content.length();
-            std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/html\r\nContent-Length: " + 
-                                  ss.str() + "\r\n\r\n" + error_content;
-            send(fds[i].fd, error_msg.c_str(), error_msg.length(), 0);
+            std::stringstream status_ss;
+            status_ss << status_code;
+
+            std::string status_text = (status_code == 413) ? "Payload Too Large" : "Internal Server Error";
+            std::string response = "HTTP/1.1 " + status_ss.str() + " " + status_text + 
+                                 "\r\nContent-Type: text/html\r\nContent-Length: " + 
+                                 ss.str() + "\r\n\r\n" + error_content;
+
+            send(fds[i].fd, response.c_str(), response.length(), 0);
         }
     }
 }
