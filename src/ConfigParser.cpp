@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigParser.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 17:27:08 by dloisel           #+#    #+#             */
-/*   Updated: 2025/01/26 17:42:46 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/21 22:49:07 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,7 +41,7 @@ std::vector<std::string> ConfigParser::split(const std::string& s, char delimite
 
 void ConfigParser::parseLocationBlock(std::istringstream& block_stream, LocationConfig& loc)
 {
-    // Initialiser autoindex à false par défaut
+
     loc.autoindex = false;
     
     std::string line, key;

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPResponse.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 15:40:57 by dmathis           #+#    #+#             */
-/*   Updated: 2025/02/19 15:08:18 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/21 22:52:06 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,9 +15,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <ctime>
-#include "CGIHandler.hpp"  // Include CGIHandler
+#include "CGIHandler.hpp" 
 
-// Définition de la variable statique
 const ServerConfig* HTTPResponse::_config = NULL;
 
 HTTPResponse::HTTPResponse(int status, std::string content_type, std::string body) {
@@ -65,12 +64,12 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
         
         std::string cgi_response = cgi.executeCGI(
             req.getMethod(),
-            "",  // query string
+            "",  
             req.getBody(),
             contentType
         );
 
-        // Parse CGI response headers and convert to HTTP response
+     
         std::stringstream response_stream;
         std::istringstream iss(cgi_response);
         std::string line;
@@ -80,9 +79,9 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
         std::string content_type = "text/plain";
         std::string body;
 
-        // Parse headers
+    
         while (std::getline(iss, line)) {
-            // Remove \r if present
+      
             if (!line.empty() && line[line.length()-1] == '\r') {
                 line = line.substr(0, line.length()-1);
             }
@@ -95,7 +94,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
             if (!headers_done) {
                 if (line.find("Status:") == 0) {
                     std::string status = line.substr(7);
-                    // Trim leading spaces
+          
                     status = status.substr(status.find_first_not_of(" \t"));
                     size_t space_pos = status.find(' ');
                     if (space_pos != std::string::npos) {
@@ -105,7 +104,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
                 }
                 else if (line.find("Content-type:") == 0 || line.find("Content-Type:") == 0) {
                     content_type = line.substr(line.find(':') + 1);
-                    // Trim leading spaces
+               
                     content_type = content_type.substr(content_type.find_first_not_of(" \t"));
                 }
             }
@@ -114,7 +113,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
             }
         }
 
-        // Build HTTP response
+   
         response_stream << "HTTP/1.1 " << status_code << " " << status_message << "\r\n";
         response_stream << "Content-Type: " << content_type << "\r\n";
         response_stream << "Content-Length: " << body.length() << "\r\n";
@@ -128,7 +127,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
         std::cerr << "Body length: " << body.length() << std::endl;
         std::cerr << "First 100 chars of body:\n" << body.substr(0, 100) << std::endl;
 
-        // Send the response to the client
+     
         std::string response = response_stream.str();
         if (send(client_fd, response.c_str(), response.length(), 0) < 0) {
             throw std::runtime_error("Failed to send response");
@@ -141,7 +140,7 @@ void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, 
 }
 
 void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req) {
-    // Obtenir le User-Agent
+  
     std::string user_agent = req.getHeader("User-Agent");
     bool is_browser = (user_agent.find("Mozilla") != std::string::npos || 
                      user_agent.find("Chrome") != std::string::npos || 
@@ -150,7 +149,7 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
                      user_agent.find("Opera") != std::string::npos);
 
     if (is_browser) {
-        // Pour les navigateurs, envoyer la page HTML complète
+    
         std::stringstream error_path;
         error_path << "./error/" << error_code << ".html";
         std::ifstream error_file(error_path.str().c_str());
@@ -164,14 +163,14 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
                 std::string response = resp.toString();
                 sendResponse(client_fd, response);
             } catch (const std::exception& e) {
-                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+         
                 close(client_fd);
             }
             return;
         }
     }
 
-    // Pour les terminaux ou si la page HTML n'existe pas
+  
     std::string error_message;
     switch (error_code) {
         case 400: error_message = "Bad Request"; break;
@@ -191,7 +190,7 @@ void HTTPResponse::sendErrorPage(int client_fd, int error_code, HTTPRequest& req
         std::string response = resp.toString();
         sendResponse(client_fd, response);
     } catch (const std::exception& e) {
-        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+   
         close(client_fd);
     }
 }
@@ -204,10 +203,10 @@ void HTTPResponse::sendResponse(int client_fd, const std::string& response_data)
         ssize_t sent = send(client_fd, response_data.c_str() + total_sent, len - total_sent, 0);
         if (sent < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // Socket buffer is full, wait for POLLOUT event
+              
                 return;
             }
-            // Erreur fatale
+          
             close(client_fd);
             return;
         }
@@ -218,11 +217,11 @@ void HTTPResponse::sendResponse(int client_fd, const std::string& response_data)
 bool HTTPResponse::isMethodAllowed(const std::string& uri, const std::string& method) {
     if (!_config) return false;
 
-    // Trouve la location correspondante
+  
     std::string best_match;
     const LocationConfig* matching_location = NULL;
     
-    // Recherche la meilleure correspondance de location
+  
     for (std::map<std::string, LocationConfig>::const_iterator it = _config->locations.begin(); 
          it != _config->locations.end(); ++it) {
         if (uri.find(it->first) == 0 && it->first.length() > best_match.length()) {
@@ -231,18 +230,18 @@ bool HTTPResponse::isMethodAllowed(const std::string& uri, const std::string& me
         }
     }
 
-    // Si aucune location n'est trouvée, on utilise la configuration par défaut
+  
     if (!matching_location) {
         matching_location = &_config->locations.at("/");
     }
 
-    // Si allowed_methods est vide ou contient "NONE", aucune méthode n'est autorisée
+   
     if (matching_location->allowed_methods.empty() || 
         (matching_location->allowed_methods.size() == 1 && matching_location->allowed_methods[0] == "NONE")) {
         return false;
     }
 
-    // Vérifie si la méthode est dans la liste des méthodes autorisées
+  
     return (std::find(matching_location->allowed_methods.begin(), 
                     matching_location->allowed_methods.end(), 
                     method) != matching_location->allowed_methods.end());
@@ -253,24 +252,24 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         std::string uri = req.getURI();
         std::string method = req.getMethod();
         
-        // Vérifier le host
+    
         std::string host = req.getHeader("Host");
         if (host.empty()) {
             sendErrorPage(client_fd, 400, req);
             return;
         }
 
-        // Extraire le hostname sans le port
+    
         size_t colon_pos = host.find(':');
         std::string hostname = (colon_pos != std::string::npos) ? host.substr(0, colon_pos) : host;
 
-        // Vérifier que le hostname correspond à la configuration
+   
         if (hostname != _config->host) {
             sendErrorPage(client_fd, 400, req);
             return;
         }
 
-        // Vérifier si la méthode est autorisée
+   
         if (!isMethodAllowed(uri, method)) {
             if ((uri == "/forbidden") || (uri.find("/forbidden/") == 0)) {
                 sendErrorPage(client_fd, 403, req);
@@ -280,19 +279,19 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
             return;
         }
 
-        // Trouver la location correspondante
+  
         std::string location = findLocationForURI(uri, _config->locations);
         const LocationConfig& loc_config = _config->locations.at(location);
 
-        // Construire le chemin complet
+   
         std::string root = loc_config.root;
-        // Supprimer le / à la fin s'il existe
+    
         if (!root.empty() && root[root.length() - 1] == '/') {
             root = root.substr(0, root.length() - 1);
         }
 
         std::string full_path = root + uri;
-        // Supprimer les doubles slashes
+
         size_t pos = 0;
         while ((pos = full_path.find("//", pos)) != std::string::npos) {
             full_path.replace(pos, 2, "/");
@@ -305,21 +304,21 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 return;
             }
 
-            // Si le fichier n'existe pas
+       
             if (stat(full_path.c_str(), &path_stat) != 0) {
                 sendErrorPage(client_fd, 404, req);
                 return;
             }
 
-            // Si c'est un répertoire ou si l'URI se termine par /
+       
             if (S_ISDIR(path_stat.st_mode) || uri == "/" || uri[uri.length() - 1] == '/') {
-                // Si autoindex est activé, on affiche le contenu du répertoire
+           
                 if (loc_config.autoindex) {
                     generateDirectoryListing(full_path, client_fd);
                     return;
                 }
                 
-                // Sinon on essaie de servir le fichier index
+             
                 std::string index_path;
                 if (!loc_config.index.empty()) {
                     index_path = full_path + (uri == "/" ? "" : "/") + loc_config.index;
@@ -335,28 +334,26 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 return;
             }
 
-            // Servir le fichier
+      
             serveFile(full_path, client_fd);
         }
         else if ((method == "POST")) {
-            // Vérifier d'abord si c'est un CGI
+       
             if (isCGI(uri)) {
                 executeCGI(full_path, req, client_fd);
                 return;
             }
 
-            // Si ce n'est pas un CGI, traiter comme un upload de fichier
-            // Vérifier si le chemin est un répertoire ou se termine par /
             if (((stat(full_path.c_str(), &path_stat) == 0) && (S_ISDIR(path_stat.st_mode))) || 
                 (full_path[full_path.length() - 1] == '/')) {
-                // Créer un nouveau fichier avec un nom unique dans le répertoire
+                
                 char buffer[20];
                 sprintf(buffer, "%ld", time(NULL));
                 full_path = full_path + (full_path[full_path.length() - 1] == '/' ? "" : "/") + 
                            "post_" + std::string(buffer) + ".txt";
             }
 
-            // Créer le répertoire parent si nécessaire
+       
             size_t last_slash = full_path.find_last_of('/');
             if ((last_slash != std::string::npos)) {
                 std::string dir = full_path.substr(0, last_slash);
@@ -369,7 +366,7 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 }
             }
 
-            // Écrire le fichier
+           
             std::ofstream file(full_path.c_str(), std::ios::out | std::ios::binary);
             if (!file.is_open()) {
                 sendErrorPage(client_fd, 500, req);
@@ -389,7 +386,7 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 std::string response = resp.toString();
                 sendResponse(client_fd, response);
             } catch (const std::exception& e) {
-                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+             
                 close(client_fd);
             }
         }
@@ -414,7 +411,7 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 std::string response = resp.toString();
                 sendResponse(client_fd, response);
             } catch (const std::exception& e) {
-                // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+               
                 close(client_fd);
             }
         }
@@ -435,7 +432,7 @@ void HTTPResponse::serveFile(const std::string& path, int client_fd) {
             std::string response = resp.toString();
             sendResponse(client_fd, response);
         } catch (const std::exception& e) {
-            // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+          
             close(client_fd);
         }
         return;
@@ -460,7 +457,7 @@ void HTTPResponse::serveFile(const std::string& path, int client_fd) {
         std::string response = resp.toString();
         sendResponse(client_fd, response);
     } catch (const std::exception& e) {
-        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+
         close(client_fd);
     }
 }
@@ -473,17 +470,16 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
             std::string response = resp.toString();
             sendResponse(client_fd, response);
         } catch (const std::exception& e) {
-            // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+
             close(client_fd);
         }
         return;
     }
 
-    // Trouver l'URI relative en comparant avec le root de la location
+
     std::string location_root;
     std::string current_uri;
     
-    // Trouver la location qui correspond au chemin
     std::map<std::string, LocationConfig>::const_iterator it;
     for (it = _config->locations.begin(); it != _config->locations.end(); ++it) {
         const std::string& loc_path = it->first;
@@ -491,12 +487,12 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         
         if (path.find(loc.root) == 0) {
             location_root = loc.root;
-            // L'URI commence par le chemin de la location
+
             current_uri = loc_path;
-            // Ajouter le reste du chemin s'il y en a
+
             if (path.length() > loc.root.length()) {
                 std::string relative_path = path.substr(loc.root.length());
-                // Nettoyer le chemin (enlever les doubles slashes)
+
                 while (relative_path[0] == '/') {
                     relative_path = relative_path.substr(1);
                 }
@@ -508,7 +504,6 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         }
     }
 
-    // S'assurer que l'URI se termine par /
     if (current_uri[current_uri.length() - 1] != '/') {
         current_uri += "/";
     }
@@ -571,7 +566,6 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
     html << "<h1>Directory of " << current_uri << "</h1>";
     html << "<div class='container'><ul class='file-list'>";
 
-    // Ajouter le lien vers le dossier parent sauf pour la racine
     if (current_uri != "/") {
         html << "<li class='file-item'>";
         html << "<span class='file-name directory'>..</span>";
@@ -588,10 +582,8 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         }
     }
 
-    // Trier les entrées par ordre alphabétique
     std::sort(entries.begin(), entries.end());
 
-    // Itérer sur les entrées triées
     std::vector<std::string>::const_iterator name_it;
     for (name_it = entries.begin(); name_it != entries.end(); ++name_it) {
         const std::string& name = *name_it;
@@ -600,7 +592,7 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         if (stat(full_path.c_str(), &st) == 0) {
             char time_str[26];
             ctime_r(&st.st_mtime, time_str);
-            time_str[24] = '\0';  // Remove newline
+            time_str[24] = '\0';
             
             html << "<li class='file-item'>";
             html << "<span class='file-name";
@@ -628,11 +620,11 @@ void HTTPResponse::generateDirectoryListing(const std::string& path, int client_
         std::string response = resp.toString();
         sendResponse(client_fd, response);
     } catch (const std::exception& e) {
-        // En cas d'erreur lors de l'envoi de la page d'erreur, on ferme simplement la connexion
+
         close(client_fd);
     }
     
-    closedir(dir);  // Fermer le répertoire dans tous les cas
+    closedir(dir); 
 }
 
 std::string HTTPResponse::findLocationForURI(const std::string& uri, const std::map<std::string, LocationConfig>& locations) {

@@ -6,7 +6,7 @@
 /*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:18 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/19 02:20:53 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/21 22:48:22 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,11 +41,9 @@
 # include <string>
 # include "ConfigTypes.hpp"
 
-// Variables globales
 extern volatile sig_atomic_t g_running;
 extern std::vector<pollfd>* g_fds;
 
-// Déclarations des fonctions
 bool parse(int argc, char **argv);
 bool socket(const ServerConfig& config);
 void handle_client(struct pollfd *fds, int i);

@@ -12,7 +12,6 @@
 #include <arpa/inet.h>
 #include <iostream>
 
-// Définition des variables globales
 std::vector<pollfd>* g_fds = NULL;
 volatile sig_atomic_t g_running = 1;
 
@@ -25,14 +24,14 @@ void signal_handler(int signum) {
 
 void cleanup_resources() {
     if (g_fds) {
-        // Fermer tous les sockets sauf stdin
+       
         for (std::vector<pollfd>::iterator it = g_fds->begin(); it != g_fds->end(); ++it) {
             if (it->fd >= 0 && it->fd != STDIN_FILENO) {
                 close(it->fd);
             }
         }
         g_fds->clear();
-        g_fds = NULL;  // On ne delete pas car c'est un vecteur statique
+        g_fds = NULL; 
     }
 }
 
@@ -97,9 +96,9 @@ bool socket(const ServerConfig& config)
 
 void handle_client(struct pollfd *fds, int i)
 {
-    // Si c'est un socket serveur, accepter la nouvelle connexion
+   
     for (size_t j = 0; j < g_fds->size(); ++j) {
-        if (g_fds->at(j).fd == fds[i].fd && j < 2) { // Les 2 premiers fds sont les serveurs
+        if (g_fds->at(j).fd == fds[i].fd && j < 2) { 
             struct sockaddr_in client_addr;
             socklen_t addr_len = sizeof(client_addr);
             int client_fd = accept(fds[i].fd, (struct sockaddr*)&client_addr, &addr_len);
@@ -109,11 +108,10 @@ void handle_client(struct pollfd *fds, int i)
                 return;
             }
 
-            // Mettre le client en mode non-bloquant
             int flags = fcntl(client_fd, F_GETFL, 0);
             if (flags >= 0) {
                 fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
-                pollfd client = {client_fd, POLLIN | POLLOUT, 0};  // Ajout de POLLOUT
+                pollfd client = {client_fd, POLLIN | POLLOUT, 0};  
                 g_fds->push_back(client);
                 std::cerr << "New client connected on server " << j << std::endl;
             } else {
@@ -123,9 +121,9 @@ void handle_client(struct pollfd *fds, int i)
         }
     }
 
-    // Sinon, c'est un client existant, traiter sa requête
+  
     if (fds[i].revents & POLLIN) {
-        char buffer[4096] = {0};  // Initialiser à zéro
+        char buffer[4096] = {0}; 
         ssize_t bytes_read = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes_read <= 0) {
@@ -138,7 +136,7 @@ void handle_client(struct pollfd *fds, int i)
         buffer[bytes_read] = '\0';
         
         try {
-            // Trouver le bon serveur en fonction du Host header
+         
             std::string host;
             size_t host_end = std::string(buffer).find("\r\n");
             if (host_end != std::string::npos) {
@@ -163,7 +161,7 @@ void handle_client(struct pollfd *fds, int i)
                 }
             }
 
-            // Si aucun hôte correspondant n'est trouvé, utiliser le premier serveur
+        
             if (!config && !server_configs.empty()) {
                 config = &server_configs[0];
                 HTTPResponse::setConfig(config);
@@ -178,9 +176,8 @@ void handle_client(struct pollfd *fds, int i)
             resp.handle_request(req, fds[i].fd);
         } catch (const std::exception& e) {
             std::string error_msg = e.what();
-            int status_code = 500; // Code par défaut
+            int status_code = 500; 
 
-            // Extraire le code d'erreur du message
             if (error_msg.find("413") == 0) {
                 status_code = 413;
             }
@@ -190,7 +187,6 @@ void handle_client(struct pollfd *fds, int i)
                 HTTPResponse::setConfig(&server_configs[0]);
             }
 
-            // Créer une réponse d'erreur directement
             std::string error_content;
             std::stringstream error_path_ss;
             error_path_ss << "./error/" << status_code << ".html";

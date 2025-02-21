@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: dloisel <dloisel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/25 17:18:12 by dloisel           #+#    #+#             */
-/*   Updated: 2025/02/20 10:47:23 by dloisel          ###   ########.fr       */
+/*   Updated: 2025/02/21 22:52:31 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,16 +20,16 @@
 #include <set>
 #include <sstream>
 
-static std::vector<pollfd> fds;  // Vecteur statique pour éviter les problèmes de delete
-std::vector<ServerConfig> server_configs;  // Garder les configs en mémoire
+static std::vector<pollfd> fds; 
+std::vector<ServerConfig> server_configs; 
 
-// Vérifier les doublons d'IP et de port
+
 bool check_duplicate_configs(const std::vector<ServerConfig>& configs) {
     std::set<std::string> ips;
     std::set<int> ports;
     
     for (size_t i = 0; i < configs.size(); ++i) {
-        // Vérifier les IPs en double
+ 
         if (ips.find(configs[i].host) != ips.end()) {
             std::cerr << "\033[31mError: Duplicate IP address found: " << configs[i].host << "\033[0m" << std::endl;
             std::cerr << "\033[31mEach server must have a unique IP address.\033[0m" << std::endl;
@@ -37,7 +37,7 @@ bool check_duplicate_configs(const std::vector<ServerConfig>& configs) {
         }
         ips.insert(configs[i].host);
 
-        // Vérifier les ports en double
+      
         if (ports.find(configs[i].listen_port) != ports.end()) {
             std::cerr << "\033[31mError: Duplicate port found: " << configs[i].listen_port << "\033[0m" << std::endl;
             std::cerr << "\033[31mEach server must have a unique port.\033[0m" << std::endl;
@@ -119,16 +119,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Vérifier les doublons d'IP et de port
+   
     if (!check_duplicate_configs(server_configs)) {
         std::cerr << "\033[31mError: Server configuration contains duplicate IP or port.\033[0m" << std::endl;
         return 1;
     }
 
-    // Définir la configuration pour HTTPResponse
-    HTTPResponse::setConfig(&server_configs[0]); // On utilise le premier serveur par défaut
+   
+    HTTPResponse::setConfig(&server_configs[0]); 
 
-    g_fds = &fds;  // Utiliser le vecteur statique
+    g_fds = &fds;
 
     for (size_t i = 0; i < server_configs.size(); ++i) {
         if (!socket(server_configs[i])) {

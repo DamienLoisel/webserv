@@ -6,7 +6,7 @@
 /*   By: dmathis <dmathis@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/26 15:41:07 by dmathis           #+#    #+#             */
-/*   Updated: 2025/02/19 02:24:49 by dmathis          ###   ########.fr       */
+/*   Updated: 2025/02/21 22:49:13 by dmathis          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,7 @@ HTTPRequest::HTTPRequest(const char* raw_request, const ServerConfig* config) : 
     
     parseHeaders(headers_stream);
 
-    // Vérifier la taille du corps de la requête avant de le lire
+
     std::string content_length_str = getHeader("Content-Length");
     if (!content_length_str.empty()) {
         size_t content_length = std::atol(content_length_str.c_str());

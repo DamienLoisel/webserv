@@ -21,10 +21,9 @@ void CGIHandler::setupEnvironment(const std::string& method, const std::string& 
     ss << _requestBody.length();
     _env["CONTENT_LENGTH"] = ss.str();
     
-    // Variables d'environnement requises par CGI
     _env["SCRIPT_FILENAME"] = _scriptPath;
-    _env["SCRIPT_NAME"] = "/cgi-bin/post.py";  // Le chemin relatif au document root
-    _env["PATH_INFO"] = "";  // Pas de path info dans notre cas
+    _env["SCRIPT_NAME"] = "/cgi-bin/post.py";  
+    _env["PATH_INFO"] = "";  
     _env["SERVER_NAME"] = "127.0.0.1";
     _env["SERVER_PORT"] = "7000";
     _env["SERVER_SOFTWARE"] = "webserv/1.0";
@@ -81,7 +80,7 @@ std::string CGIHandler::executeCGI(const std::string& method, const std::string&
     }
 
     if (pid == 0) {
-        // Changer vers le répertoire du script
+
         std::string scriptDir = _scriptPath.substr(0, _scriptPath.find_last_of('/'));
         std::string scriptName = _scriptPath.substr(_scriptPath.find_last_of('/') + 1);
         
@@ -107,12 +106,12 @@ std::string CGIHandler::executeCGI(const std::string& method, const std::string&
         close(outputPipe[1]);
         close(errorPipe[1]);
 
-        // Définir une alarme de 5 secondes
+
         alarm(5);
         
         char** env = createEnvArray();
         
-        // Déterminer l'interpréteur basé sur l'extension
+
         std::string interpreter;
         size_t dot_pos = scriptName.find_last_of('.');
         if (dot_pos != std::string::npos) {
@@ -138,12 +137,12 @@ std::string CGIHandler::executeCGI(const std::string& method, const std::string&
         _exit(1);
     }
 
-    // Parent process
+
     close(inputPipe[0]);
     close(outputPipe[1]);
     close(errorPipe[1]);
 
-    // Écrire les données POST
+
     if (!_requestBody.empty()) {
         size_t totalWritten = 0;
         const char* data = _requestBody.c_str();
@@ -168,13 +167,13 @@ std::string CGIHandler::executeCGI(const std::string& method, const std::string&
     char buffer[4096];
     ssize_t bytesRead;
     
-    // Lire stderr
+
     while ((bytesRead = read(errorPipe[0], buffer, sizeof(buffer))) > 0) {
         error_output.append(buffer, bytesRead);
     }
     close(errorPipe[0]);
     
-    // Lire stdout
+
     while ((bytesRead = read(outputPipe[0], buffer, sizeof(buffer))) > 0) {
         response.append(buffer, bytesRead);
     }
