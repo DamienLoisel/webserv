@@ -104,6 +104,32 @@
                 <input type="hidden" name="notifications" value="true">
                 <button type="submit">POST 4 - Error 403</button>
             </form>
+
+            <form id="birthdayForm" class="form-group">
+                <input type="text" name="name" id="birthdayName" placeholder="Votre nom" required>
+                <button type="submit">POST 6 - Carte d'anniversaire</button>
+            </form>
+
+            <script>
+                document.getElementById('birthdayForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const name = document.getElementById('birthdayName').value;
+                    
+                    fetch('/cgi-bin/post.py', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name: name })
+                    })
+                    .then(response => response.text())
+                    .then(html => {
+                        const newWindow = window.open();
+                        newWindow.document.write(html);
+                        newWindow.document.close();
+                    });
+                });
+            </script>
         </div>
     </div>
 </body>

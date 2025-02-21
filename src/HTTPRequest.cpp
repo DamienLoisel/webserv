@@ -11,13 +11,20 @@
 /* ************************************************************************** */
 
 #include "HTTPRequest.hpp"
- 
+#include <iostream>
+#include <sstream>
+
 HTTPRequest::HTTPRequest(const char* raw_request) {
+    std::cout << "[DEBUG] Raw request:" << std::endl << raw_request << std::endl;
+    
     std::string request(raw_request);
     
     size_t headers_end = request.find("\r\n\r\n");
     if (headers_end == std::string::npos) {
+        std::cout << "[DEBUG] No headers end found" << std::endl;
         headers_end = request.length();
+    } else {
+        std::cout << "[DEBUG] Headers end found at position " << headers_end << std::endl;
     }
     
     std::string headers_part = request.substr(0, headers_end);
@@ -25,18 +32,30 @@ HTTPRequest::HTTPRequest(const char* raw_request) {
     
     std::string request_line;
     std::getline(headers_stream, request_line);
+    std::cout << "[DEBUG] Request line: " << request_line << std::endl;
     parseRequestLine(request_line);
     
     parseHeaders(headers_stream);
     
     if (headers_end < request.length()) {
         body = request.substr(headers_end + 4);
-        std::cout << "[DEBUG] Read body: " << body << std::endl;
+        std::cout << "[DEBUG] Read body (length=" << body.length() << "): '" << body << "'" << std::endl;
+    } else {
+        std::cout << "[DEBUG] No body found" << std::endl;
     }
     
     if (method != "GET" && method != "POST" && method != "DELETE") {
         version = "HTTP/1.1";
         throw std::runtime_error("501 Not Implemented");
+    }
+    
+    std::cout << "[DEBUG] Parsed request:" << std::endl;
+    std::cout << "  Method: " << method << std::endl;
+    std::cout << "  URI: " << uri << std::endl;
+    std::cout << "  Version: " << version << std::endl;
+    std::cout << "  Headers:" << std::endl;
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
+        std::cout << "    " << it->first << ": " << it->second << std::endl;
     }
 }
 

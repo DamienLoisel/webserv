@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <ctime>
+#include "CGIHandler.hpp"  // Include CGIHandler
 
 // Définition de la variable statique
 const ServerConfig* HTTPResponse::_config = NULL;
@@ -47,146 +48,94 @@ bool HTTPResponse::isCGI(const std::string& uri) {
 }
 
 void HTTPResponse::executeCGI(const std::string& script_path, HTTPRequest& req, int client_fd) {
-    std::cout << "[DEBUG] Executing CGI script: " << script_path << std::endl;
-    std::cout << "[DEBUG] Method: " << req.getMethod() << std::endl;
-    std::cout << "[DEBUG] URI: " << req.getURI() << std::endl;
-
     struct stat script_stat;
     if (stat(script_path.c_str(), &script_stat) != 0) {
-        std::cout << "[ERROR] CGI script not found: " << script_path << std::endl;
         sendErrorPage(client_fd, 404, req);
         return;
     }
 
     if (!(script_stat.st_mode & S_IRUSR) || !(script_stat.st_mode & S_IXUSR)) {
-        std::cout << "[ERROR] CGI script not executable: " << script_path << std::endl;
         sendErrorPage(client_fd, 403, req);
         return;
     }
 
     try {
-        // Trouve l'interpréteur approprié
-        std::string interpreter;
-        size_t dot_pos = script_path.find_last_of('.');
-        if (dot_pos != std::string::npos) {
-            std::string ext = script_path.substr(dot_pos);
-            if (ext == ".py") {
-                interpreter = "/usr/bin/python3";
+        CGIHandler cgi(script_path);
+        std::string contentType = req.getHeader("Content-Type");
+        
+        std::string cgi_response = cgi.executeCGI(
+            req.getMethod(),
+            "",  // query string
+            req.getBody(),
+            contentType
+        );
+
+        // Parse CGI response headers and convert to HTTP response
+        std::stringstream response_stream;
+        std::istringstream iss(cgi_response);
+        std::string line;
+        bool headers_done = false;
+        int status_code = 200;
+        std::string status_message = "OK";
+        std::string content_type = "text/plain";
+        std::string body;
+
+        // Parse headers
+        while (std::getline(iss, line)) {
+            // Remove \r if present
+            if (!line.empty() && line[line.length()-1] == '\r') {
+                line = line.substr(0, line.length()-1);
             }
-            else if (ext == ".sh") {
-                interpreter = "/bin/bash";
+
+            if (line.empty()) {
+                headers_done = true;
+                continue;
             }
-        }
-
-        if (interpreter.empty()) {
-            std::cout << "[ERROR] No interpreter found for: " << script_path << std::endl;
-            sendErrorPage(client_fd, 500, req);
-            return;
-        }
-
-        // Exécute le script CGI avec un timeout
-        int pipefd[2];
-        if (pipe(pipefd) == -1) {
-            std::cout << "[ERROR] Failed to create pipe" << std::endl;
-            sendErrorPage(client_fd, 500, req);
-            return;
-        }
-
-        pid_t pid = fork();
-        if (pid == -1) {
-            close(pipefd[0]);
-            close(pipefd[1]);
-            std::cout << "[ERROR] Fork failed" << std::endl;
-            sendErrorPage(client_fd, 500, req);
-            return;
-        }
-
-        if (pid == 0) {  // Child process
-            close(pipefd[0]);  // Close read end
-            dup2(pipefd[1], STDOUT_FILENO);
-            close(pipefd[1]);
-
-            // Set up environment variables
-            std::stringstream content_length;
-            content_length << req.getBody().length();
             
-            setenv("SCRIPT_NAME", script_path.c_str(), 1);
-            setenv("REQUEST_METHOD", req.getMethod().c_str(), 1);
-            setenv("CONTENT_LENGTH", content_length.str().c_str(), 1);
-            setenv("CONTENT_TYPE", "application/x-www-form-urlencoded", 1);
-
-            // Execute the script
-            execl(interpreter.c_str(), interpreter.c_str(), script_path.c_str(), NULL);
-            exit(1);  // In case execl fails
-        }
-
-        // Parent process
-        close(pipefd[1]);  // Close write end
-
-        // Read output with timeout
-        fd_set read_fds;
-        struct timeval timeout;
-        char buffer[4096];
-        std::string output;
-        bool timeout_occurred = false;
-
-        while (true) {
-            FD_ZERO(&read_fds);
-            FD_SET(pipefd[0], &read_fds);
-            timeout.tv_sec = 5;  // 5 seconds timeout
-            timeout.tv_usec = 0;
-
-            int ready = select(pipefd[0] + 1, &read_fds, NULL, NULL, &timeout);
-            if (ready == -1) {
-                std::cout << "[ERROR] Select failed" << std::endl;
-                break;
+            if (!headers_done) {
+                if (line.find("Status:") == 0) {
+                    std::string status = line.substr(7);
+                    // Trim leading spaces
+                    status = status.substr(status.find_first_not_of(" \t"));
+                    size_t space_pos = status.find(' ');
+                    if (space_pos != std::string::npos) {
+                        status_code = std::atoi(status.substr(0, space_pos).c_str());
+                        status_message = status.substr(space_pos + 1);
+                    }
+                }
+                else if (line.find("Content-type:") == 0 || line.find("Content-Type:") == 0) {
+                    content_type = line.substr(line.find(':') + 1);
+                    // Trim leading spaces
+                    content_type = content_type.substr(content_type.find_first_not_of(" \t"));
+                }
             }
-            else if (ready == 0) {
-                std::cout << "[ERROR] CGI timeout" << std::endl;
-                timeout_occurred = true;
-                break;
+            else {
+                body += line + "\n";
             }
-
-            ssize_t bytes_read = read(pipefd[0], buffer, sizeof(buffer) - 1);
-            if (bytes_read <= 0) break;
-            
-            buffer[bytes_read] = '\0';
-            output += buffer;
         }
 
-        close(pipefd[0]);
+        // Build HTTP response
+        response_stream << "HTTP/1.1 " << status_code << " " << status_message << "\r\n";
+        response_stream << "Content-Type: " << content_type << "\r\n";
+        response_stream << "Content-Length: " << body.length() << "\r\n";
+        response_stream << "\r\n";
+        response_stream << body;
 
-        // Kill child process if timeout occurred
-        if (timeout_occurred) {
-            kill(pid, SIGKILL);
-            sendErrorPage(client_fd, 504, req);  // Gateway Timeout
-            return;
-        }
+        std::cerr << "=== Response Debug ===\n";
+        std::cerr << "Status code: " << status_code << std::endl;
+        std::cerr << "Status message: " << status_message << std::endl;
+        std::cerr << "Content-Type: " << content_type << std::endl;
+        std::cerr << "Body length: " << body.length() << std::endl;
+        std::cerr << "First 100 chars of body:\n" << body.substr(0, 100) << std::endl;
 
-        // Wait for child process
-        int status;
-        waitpid(pid, &status, 0);
-
-        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            // Format CGI response
-            std::stringstream content_length;
-            content_length << output.length();
-            
-            std::string response = "HTTP/1.1 200 OK\r\n";
-            response += "Content-Type: text/plain\r\n";
-            response += "Content-Length: " + content_length.str() + "\r\n";
-            response += "\r\n";
-            response += output;
-
-            sendResponse(client_fd, response);
-        }
-        else {
-            std::cout << "[ERROR] CGI script failed with status: " << WEXITSTATUS(status) << std::endl;
-            sendErrorPage(client_fd, 500, req);
+        // Send the response to the client
+        std::string response = response_stream.str();
+        if (send(client_fd, response.c_str(), response.length(), 0) < 0) {
+            throw std::runtime_error("Failed to send response");
         }
     }
     catch (const std::exception& e) {
-        std::cout << "[ERROR] CGI execution failed: " << e.what() << std::endl;
+        std::cerr << "CGI Error: " << e.what() << std::endl;
         sendErrorPage(client_fd, 500, req);
     }
 }
@@ -304,13 +253,9 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         std::string uri = req.getURI();
         std::string method = req.getMethod();
         
-        std::cout << "[DEBUG] Handling request for URI: " << uri << std::endl;
-        std::cout << "[DEBUG] Method: " << method << std::endl;
-
         // Vérifier le host
         std::string host = req.getHeader("Host");
         if (host.empty()) {
-            std::cout << "[DEBUG] No Host header found" << std::endl;
             sendErrorPage(client_fd, 400, req);
             return;
         }
@@ -321,7 +266,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
 
         // Vérifier que le hostname correspond à la configuration
         if (hostname != _config->host) {
-            std::cout << "[DEBUG] Host mismatch. Got: " << hostname << ", Expected: " << _config->host << std::endl;
             sendErrorPage(client_fd, 400, req);
             return;
         }
@@ -340,9 +284,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         std::string location = findLocationForURI(uri, _config->locations);
         const LocationConfig& loc_config = _config->locations.at(location);
 
-        std::cout << "[DEBUG] Location found: " << location << std::endl;
-        std::cout << "[DEBUG] Root: " << loc_config.root << std::endl;
-
         // Construire le chemin complet
         std::string root = loc_config.root;
         // Supprimer le / à la fin s'il existe
@@ -356,8 +297,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         while ((pos = full_path.find("//", pos)) != std::string::npos) {
             full_path.replace(pos, 2, "/");
         }
-
-        std::cout << "[DEBUG] Full path: " << full_path << std::endl;
 
         struct stat path_stat;
         if ((method == "GET")) {
@@ -388,8 +327,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                     index_path = full_path + (uri == "/" ? "" : "/") + "index.html";
                 }
                 
-                std::cout << "[DEBUG] Trying index file: " << index_path << std::endl;
-                
                 if (stat(index_path.c_str(), &path_stat) == 0) {
                     serveFile(index_path, client_fd);
                 } else {
@@ -402,8 +339,13 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
             serveFile(full_path, client_fd);
         }
         else if ((method == "POST")) {
-            std::cout << "[DEBUG] POST request body: " << req.getBody() << std::endl;
+            // Vérifier d'abord si c'est un CGI
+            if (isCGI(uri)) {
+                executeCGI(full_path, req, client_fd);
+                return;
+            }
 
+            // Si ce n'est pas un CGI, traiter comme un upload de fichier
             // Vérifier si le chemin est un répertoire ou se termine par /
             if (((stat(full_path.c_str(), &path_stat) == 0) && (S_ISDIR(path_stat.st_mode))) || 
                 (full_path[full_path.length() - 1] == '/')) {
@@ -412,20 +354,15 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
                 sprintf(buffer, "%ld", time(NULL));
                 full_path = full_path + (full_path[full_path.length() - 1] == '/' ? "" : "/") + 
                            "post_" + std::string(buffer) + ".txt";
-                std::cout << "[DEBUG] Creating file at: " << full_path << std::endl;
             }
 
             // Créer le répertoire parent si nécessaire
             size_t last_slash = full_path.find_last_of('/');
             if ((last_slash != std::string::npos)) {
                 std::string dir = full_path.substr(0, last_slash);
-                std::cout << "[DEBUG] Parent directory: " << dir << std::endl;
                 struct stat dir_stat;
                 if (stat(dir.c_str(), &dir_stat) != 0) {
-                    std::cout << "[DEBUG] Creating parent directory" << std::endl;
-                    // Créer le répertoire avec les permissions 755
                     if (mkdir(dir.c_str(), 0755) != 0) {
-                        std::cout << "[ERROR] Failed to create directory: " << strerror(errno) << std::endl;
                         sendErrorPage(client_fd, 500, req);
                         return;
                     }
@@ -433,10 +370,8 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
             }
 
             // Écrire le fichier
-            std::cout << "[DEBUG] Opening file for writing: " << full_path << std::endl;
             std::ofstream file(full_path.c_str(), std::ios::out | std::ios::binary);
             if (!file.is_open()) {
-                std::cout << "[ERROR] Failed to open file: " << strerror(errno) << std::endl;
                 sendErrorPage(client_fd, 500, req);
                 return;
             }
@@ -445,12 +380,10 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
             file.close();
 
             if (file.fail()) {
-                std::cout << "[ERROR] Failed to write to file" << std::endl;
                 sendErrorPage(client_fd, 500, req);
                 return;
             }
 
-            std::cout << "[DEBUG] File written successfully" << std::endl;
             HTTPResponse resp(201, "text/plain", "Resource created successfully");
             try {
                 std::string response = resp.toString();
@@ -490,7 +423,6 @@ void HTTPResponse::handle_request(HTTPRequest& req, int client_fd) {
         }
     }
     catch (const std::exception& e) {
-        std::cout << "[ERROR] " << e.what() << std::endl;
         sendErrorPage(client_fd, 500, req);
     }
 }

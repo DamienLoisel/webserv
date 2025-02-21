@@ -4,3 +4,13 @@ Plusieurs serveurs.
 Construire l'url dans le c++/socket
 Verifier l'host en fonction du fichier .conf
 Si les serveurs ont des ports identiques ou une adress ip identique il faut génerer une erreur
+
+curl -X PUTR 127.0.0.1:7000/POST -d '{"key":"value"' -H "Content-Type: application/json" 
+
+
+redirection
+erreur pour le max body size
+CGI dans le working directory
+faire un script python qui c'est la fete a "machine" avec une image de chapeau de chien et on peut lui passer en CGI.
+
+- Look at the request header and response header. retrouver la comande
